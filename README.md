@@ -9,12 +9,13 @@
 
 ## ASTON OS Trust Fabric
 
-This repository is the independent assurance plane for ASTON OS. It is additive: it does not replace the operational ASTON OS Worker or change its Cloudflare bindings, secrets, migrations or deployments.
+This repository is the independent assurance plane for ASTON OS. It is additive: it does not replace the operational ASTON OS Worker or change its production bindings, secrets, migrations or deployments.
 
 | Module | Responsibility | Current state |
 |---|---|---|
 | ASTON Audit Engine | ARP-100 catalog and deterministic evaluation | Reference code + CI tests |
 | ASTON Guardian | Deny-by-default policy decision function | Pure function; no proxy/atomic storage adapter |
+| ASTON OS transport adapter | Bounded authenticated Service Binding client | Implemented and unit-tested; binding not configured |
 | Evidence Ledger | Evidence manifests, retention and verification | Architecture only |
 | VBC Authority | Scoped passports, signature lifecycle and revocation | Architecture only |
 | Threat Intelligence | Versioned threats mapped to tests | Roadmap |
@@ -51,7 +52,8 @@ Cases use safe fixtures. Active adversarial execution requires an explicitly aut
 
 ## Explicit non-claims
 
-- No active scanning of live third-party agents.
+- No active scanning of live third-party agents or production ASTON OS.
+- The Service Binding client is a transport adapter only; no Worker binding or target endpoint is configured.
 - No Sandbox execution adapter or atomic Durable Object budget reservation yet.
 - No R2 immutability claim until retention/versioning is verified.
 - No public-verifiable asymmetric or post-quantum certificate issuance yet.
@@ -67,6 +69,6 @@ npm test
 
 ## Runtime integration
 
-The Cloudflare Worker integration is a separate, reviewed workstream. No binding is assumed to exist. Add bindings only after inspecting the target Worker's current configuration and obtaining explicit approval.
+The Cloudflare Service Binding transport helper is implemented and unit-tested, but it is not connected to a live Worker. The target Worker was inspected read-only; no target-side code, Wrangler bindings, secrets, databases, queues, migrations or deployments were changed. A staging clone and isolated data resources must be prepared before configuring the binding.
 
-See `docs/ASTON-OS-TRUST-FABRIC-MASTER-ARCHITECTURE.md` and `docs/ASTON-OS-21X-INTEGRATION-PLAN.md`.
+See `docs/ASTON-OS-TRUST-FABRIC-MASTER-ARCHITECTURE.md`, `docs/ASTON-OS-21X-INTEGRATION-PLAN.md`, and `docs/ASTON-OS-AUDIT-TRANSPORT-CONTRACT.md`.
