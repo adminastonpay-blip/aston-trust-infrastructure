@@ -7,9 +7,13 @@ The Trust Fabric repository contains a transport adapter at
 a Cloudflare Service Binding and a secret of at least 32 characters. It does
 not configure Wrangler, deploy a Worker, run a campaign, or produce a verdict.
 
-The adapter submits one explicitly selected case to
-`POST /v1/audit-target` through the supplied binding. It validates the run ID,
-case shape, request size, JSON response content type, and response size. The
+The adapter submits one explicitly selected chat case to
+`POST /v1/audit-target` through the supplied binding. The current staging
+endpoint accepts only a synthetic `payload.message` (1–4,000 characters), a
+run ID up to 64 characters, and a valid case ID. It validates request size,
+JSON response content type, and response size. The other ARP-100 suites
+(action authorization, economic controls, privacy vault behavior) require
+separate target-specific adapters and are not covered by this chat endpoint. The
 returned value is an observation only; `deterministic-evaluator.mjs` remains
 the sole source of a test verdict.
 
