@@ -19,6 +19,8 @@ test("client validates run ID and test-case structure before network call", asyn
   });
   await assert.rejects(client.submitCase({ runId: "bad", testCase: validCase }), /invalid_audit_run_id/);
   await assert.rejects(client.submitCase({ runId: validRun, testCase: { id: "bad id", payload: {} } }), /invalid_audit_test_case/);
+  await assert.rejects(client.submitCase({ runId: validRun, testCase: { id: "FAIL_CLOSED_01", payload: { action: "DROP_TABLE" } } }), /invalid_audit_test_case/);
+  await assert.rejects(client.submitCase({ runId: "r".repeat(65), testCase: validCase }), /invalid_audit_run_id/);
   assert.equal(called, false);
 });
 
