@@ -1,6 +1,6 @@
 # ASTON TRUST INFRASTRUCTURE (ATI)
 
-**Version:** 2.0.0-draft  
+**Version:** 2.0.0-draft + Pioneer Layer 2030 scaffolds  
 **Status:** Architectural specification + reference prototype (not production-certified)  
 **Organization:** ASTON OS  
 **Related protocol:** [ARP-1 — Aston Risk Protocol](https://github.com/adminastonpay-blip/aston-risk-protocol)  
@@ -8,7 +8,16 @@
 
 > **Intelligence. Governance. Evidence. Trust.**
 
-ATI defines how automated decisions are **identified, authorized, budgeted, executed, verified, and recorded** — without claiming capabilities that lack reproducible proof.
+## Pioneer Layer 2030 (category bets)
+
+| Innovation | In this repo | Honest claim |
+|------------|--------------|--------------|
+| **ZK-Decision Passports** | `src/zk/commitment-passport.ts` | Hash commitments + predicate claims — **not** full SNARK |
+| **Agent Insurance Protocol** | `src/insurance/coverage-protocol.ts` | Coverage seal + kill-switch logic — **not** a licensed insurer |
+| **Proof-of-Intention (PoI)** | `src/poi/proof-of-intention.ts` | Inter-agent handshake package — **not** global consensus network |
+| **Compose gate** | `src/pioneer/compose.ts` | Single decision gate wiring all three |
+
+See [spec/PIONEER-2030.md](spec/PIONEER-2030.md) and [docs/PIONEER-ROADMAP.md](docs/PIONEER-ROADMAP.md).
 
 ## Classification
 
@@ -18,35 +27,25 @@ ATI defines how automated decisions are **identified, authorized, budgeted, exec
 | **VALIDATED** | Tests + reproducible evidence |
 | **PRODUCTION** | Live deploy + monitoring + recovery proven |
 
-Most ATI components today are **IMPLEMENTED** or **partial**. See [docs/ATI-2.0-GAP-MATRIX.md](docs/ATI-2.0-GAP-MATRIX.md).
+## Four oceans + pioneer track
 
-## Four oceans (summary)
+1. Zero-Trust Agentic Edge  
+2. Algorithmic Provenance  
+3. Stateful Micro-Edge  
+4. Sovereign Economic Middleware  
+5. **Pioneer 2030** — privacy audit track, algorithmic coverage, inter-agent intention  
 
-1. **Zero-Trust Agentic Edge** — constitutions, envelopes, fail-closed  
-2. **Algorithmic Provenance** — Decision Passport, hashes, independent verify  
-3. **Stateful Micro-Edge** — durable coordination (runtime-side)  
-4. **Sovereign Economic Middleware** — budgets and attributable cost estimates  
-
-## Reference prototype (this repo)
-
-```
-spec/ATI-2.0.md          Master architecture (summary)
-src/                     Portable TypeScript modules
-tests/                   Node unit tests
-docs/                    Gap matrix, licensing, provenance
-```
-
-### Core modules
+## Core modules
 
 | Module | Role |
 |--------|------|
 | `decision-lifecycle` | State machine IDENTIFY→…→AUDIT |
 | `constitution` | Executable agent limits |
-| `hmac-passport` | Stable Decision Passport (HMAC-SHA256) |
-| `economic-passport` | Cost estimate structure (not an invoice) |
-| `canonical-hash` | Deterministic SHA-256 payloads |
-
-### Run tests
+| `hmac-passport` | Open Decision Passport (HMAC-SHA256) |
+| `zk/commitment-passport` | Privacy-oriented commitments |
+| `insurance/coverage-protocol` | Seal + kill-switch |
+| `poi/proof-of-intention` | Cross-agent handshake |
+| `economic-passport` | Cost estimate structure |
 
 ```bash
 npm test
@@ -54,12 +53,13 @@ npm test
 
 ## Explicit non-claims
 
-- OpenTimestamps / Bitcoin anchoring **not** integrated here  
+- Full zero-knowledge SNARK/STARK circuits **not** shipped  
+- On-chain collateral / regulated insurance **not** shipped  
+- Universal agent TCP/IP network **not** shipped  
+- OpenTimestamps / Bitcoin anchoring **not** integrated  
 - Quantum resistance **not** asserted  
-- Selective disclosure / ZK **not** implemented  
-- Cost figures are **estimates** unless measured against a provider invoice  
 
-## Worker endpoints (when integrated)
+## Worker endpoints (trust branch)
 
 ```
 GET  /v1/trust/status
@@ -68,14 +68,8 @@ POST /v1/trust/verify
 POST /v1/trust/constitution/evaluate
 ```
 
-Requires secrets: `PII_HMAC_SECRET` or `API_KEY` on the Cloudflare Worker.
+Secrets: `PII_HMAC_SECRET` or `API_KEY`.
 
-## License
+## License & governance
 
-- Specification text: see [LICENSING.md](LICENSING.md)  
-- Code: proprietary unless otherwise stated  
-- Marks and commercial use: reserved  
-
-## Governance
-
-Read-only / audit-first. No autonomous production mutation. Human-authorized changes only.
+See [LICENSING.md](LICENSING.md). Audit-first; human-authorized mutation only.
