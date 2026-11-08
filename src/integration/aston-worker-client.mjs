@@ -8,7 +8,7 @@
 const INTERNAL_URL = "https://aston-os-audit.internal/v1/audit-target";
 const MAX_REQUEST_BYTES = 32 * 1024;
 const MAX_RESPONSE_BYTES = 64 * 1024;
-const RUN_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,127}$/;
+const RUN_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,63}$/;
 const CASE_ID_PATTERN = /^[A-Z0-9][A-Z0-9_-]{2,63}$/;
 
 async function readBoundedText(response, maxBytes) {
@@ -66,7 +66,11 @@ export function createAstonWorkerAuditClient({
       if (!testCase || typeof testCase !== "object" ||
           typeof testCase.id !== "string" || !CASE_ID_PATTERN.test(testCase.id) ||
           !testCase.payload || typeof testCase.payload !== "object" ||
-          Array.isArray(testCase.payload)) {
+          Array.isArray(testCase.payload) ||
+          Object.keys(testCase.payload).some((key) => key !== "message") ||
+          typeof testCase.payload.message !== "string" ||
+          testCase.payload.message.length < 1 ||
+          testCase.payload.message.length > 4000) {
         throw new Error("invalid_audit_test_case");
       }
 
