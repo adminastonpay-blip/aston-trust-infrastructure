@@ -59,3 +59,26 @@ target-side endpoint, binding, secret, or deployment has been changed.
 5. Run ARP-100 in an isolated staging environment with a kill switch.
 6. Review evidence, costs, false positives, and failure modes.
 7. Require human approval before any merge or deployment.
+
+
+## Trust Fabric Worker entrypoint
+
+A staging-only Worker entrypoint is available at `src/worker.mjs` and accepts
+one case per `POST /v1/audit/case`. It requires all of the following at runtime:
+
+- `AUDIT_ENABLED=true` and a `DEPLOY_PROFILE` containing `staging`;
+- a caller bearer secret `AUDIT_RUNNER_SECRET` (minimum 32 characters);
+- a target secret `ASTON_OS_AUDIT_TOKEN` (minimum 32 characters);
+- a configured Cloudflare Service Binding exposed as `ASTON_OS_AUDIT`.
+
+The entrypoint bounds the request body to 8 KiB, validates the outer schema,
+authenticates the caller, forwards one synthetic case, and returns the target
+observation with `verdict: not_evaluated`. The deterministic evaluator remains
+the only component that may assign PASS/FAIL.
+
+**No Service Binding or Wrangler deployment config is included yet.** The
+ASTON OS target must first be deployed to isolated staging; its actual Cloudflare
+service identity, account, and environment must then be verified. Only after
+that verification should an operator add `[[services]]` for
+`ASTON_OS_AUDIT` and configure the two secrets outside Git. Missing binding,
+secret, or staging flags fail closed.
