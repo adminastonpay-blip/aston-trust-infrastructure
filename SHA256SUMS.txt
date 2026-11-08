@@ -1,0 +1,2 @@
+# Placeholder — regenerate on release freeze
+# sha256sum spec/ATI-2.0.md src/**/*.ts docs/*.md > SHA256SUMS.txt

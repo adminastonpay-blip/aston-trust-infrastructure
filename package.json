@@ -1,0 +1,19 @@
+{
+  "name": "aston-trust-infrastructure",
+  "version": "2.0.0-draft",
+  "private": true,
+  "description": "ASTON TRUST INFRASTRUCTURE (ATI 2.0) — reference core for governed, verifiable decisions",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "echo \"Typecheck runs in the Worker repo; this package is source reference\""
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "aston",
+    "trust",
+    "decision-passport",
+    "governance",
+    "arp-1"
+  ]
+}
