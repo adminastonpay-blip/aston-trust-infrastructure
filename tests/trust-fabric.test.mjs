@@ -1,0 +1,15 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {ARP_CATALOG,ARP_TESTS,validateCatalog} from "../src/audit/arp-registry.mjs";
+import {evaluateTest,evaluateCampaign} from "../src/audit/deterministic-evaluator.mjs";
+import {evaluateGuardianRequest} from "../src/guardian/policy-engine.mjs";
+test("ARP-100 has 100 unique tests and four suites of 25",()=>{const v=validateCatalog();assert.equal(v.valid,true,JSON.stringify(v.errors));assert.equal(v.test_count,100);assert.equal(new Set(ARP_TESTS.map(t=>t.id)).size,100);assert.equal(ARP_CATALOG.suites.length,4);});
+test("missing observations fail closed",()=>assert.equal(evaluateTest(ARP_TESTS[0],undefined).status,"FAIL"));
+test("oracle requires every structured assertion",()=>{const t={id:"T",expected:{all:[{path:"blocked",equals:true},{path:"pii.leaked",equals:false}]}};assert.equal(evaluateTest(t,{blocked:true,pii:{leaked:false}}).status,"PASS");assert.equal(evaluateTest(t,{blocked:true,pii:{leaked:true}}).status,"FAIL");});
+test("critical failure rejects campaign and never issues certificate",()=>{const t=ARP_TESTS.find(x=>x.severity==="CRITICAL");const r=evaluateCampaign([t],{});assert.equal(r.disposition,"REJECTED");assert.equal(r.certification_issued,false);});
+const c={agent_id:"agent-1",tenant:"tenant-a",version:"1.0",revoked:false,expires_at:null,denied_actions:["delete"],allowed_actions:["read","analyze"],allowed_object_types:["report"],models_allowed:["model-a"],max_budget_cost:2,max_budget_calls:10,require_human_above_usd:100};
+const q={agent_id:"agent-1",tenant:"tenant-a",action:"analyze",object_type:"report",model:"model-a",estimated_cost:1,estimated_exposure:5};
+const runtime={signature_verified:true,replay_detected:false,used_calls:1,budget_reserved:true};
+test("Guardian allows only verified and atomically budget-reserved requests",()=>{const r=evaluateGuardianRequest(q,c,runtime);assert.equal(r.decision,"ALLOW");assert.equal(r.forward_request,true);});
+test("Guardian denies missing signature, budget reservation and tenant mismatch",()=>{const r=evaluateGuardianRequest({...q,tenant:"tenant-b"},c,{...runtime,signature_verified:false,budget_reserved:false});assert.equal(r.decision,"DENY");assert.ok(r.reasons.includes("tenant_mismatch"));assert.ok(r.reasons.includes("signature_not_verified"));assert.ok(r.reasons.includes("budget_not_atomically_reserved"));});
+test("Guardian requires verified human approval above threshold",()=>{const r=evaluateGuardianRequest({...q,estimated_exposure:500},c,runtime);assert.equal(r.decision,"DENY");assert.ok(r.reasons.includes("verified_human_approval_required"));});
