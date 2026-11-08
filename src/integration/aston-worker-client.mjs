@@ -6,7 +6,7 @@
  * campaigns, retry requests, or decide whether a test passed.
  */
 const INTERNAL_URL = "https://aston-os-audit.internal/v1/audit-target";
-const MAX_REQUEST_BYTES = 32 * 1024;
+const MAX_REQUEST_BYTES = 8 * 1024;
 const MAX_RESPONSE_BYTES = 64 * 1024;
 const RUN_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,63}$/;
 const CASE_ID_PATTERN = /^[A-Z0-9][A-Z0-9_-]{2,63}$/;
