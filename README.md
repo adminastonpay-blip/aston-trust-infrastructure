@@ -1,75 +1,74 @@
 # ASTON TRUST INFRASTRUCTURE (ATI)
 
-**Version:** 2.0.0-draft + Pioneer Layer 2030 scaffolds  
-**Status:** Architectural specification + reference prototype (not production-certified)  
+**Version:** 2.0.0-draft + ASTON OS 21.x Trust Fabric integration track  
+**Status:** Reference implementation and architecture; not production-certified or deployed  
 **Organization:** ASTON OS  
-**Related protocol:** [ARP-1 — Aston Risk Protocol](https://github.com/adminastonpay-blip/aston-risk-protocol)  
-**Runtime integration:** Cloudflare Worker `agente-OS-15.5-hector-zapata` (branch `trust/decision-passport-v0`)
+**Related protocol:** [ARP-1 — Aston Risk Protocol](https://github.com/adminastonpay-blip/aston-risk-protocol)
 
 > **Intelligence. Governance. Evidence. Trust.**
 
-## Pioneer Layer 2030 (category bets)
+## ASTON OS Trust Fabric
 
-| Innovation | In this repo | Honest claim |
-|------------|--------------|--------------|
-| **ZK-Decision Passports** | `src/zk/commitment-passport.ts` | Hash commitments + predicate claims — **not** full SNARK |
-| **Agent Insurance Protocol** | `src/insurance/coverage-protocol.ts` | Coverage seal + kill-switch logic — **not** a licensed insurer |
-| **Proof-of-Intention (PoI)** | `src/poi/proof-of-intention.ts` | Inter-agent handshake package — **not** global consensus network |
-| **Compose gate** | `src/pioneer/compose.ts` | Single decision gate wiring all three |
+This repository is the independent assurance plane for ASTON OS. It is additive: it does not replace the operational ASTON OS Worker or change its production bindings, secrets, migrations or deployments.
 
-See [spec/PIONEER-2030.md](spec/PIONEER-2030.md) and [docs/PIONEER-ROADMAP.md](docs/PIONEER-ROADMAP.md).
+| Module | Responsibility | Current state |
+|---|---|---|
+| ASTON Audit Engine | ARP-100 catalog and deterministic evaluation | Reference code + CI tests |
+| ASTON Guardian | Deny-by-default policy decision function | Pure function; no proxy/atomic storage adapter |
+| ASTON OS transport adapter | Bounded authenticated Service Binding client | Implemented and unit-tested; binding not configured |
+| Evidence Ledger | Evidence manifests, retention and verification | Architecture only |
+| VBC Authority | Scoped passports, signature lifecycle and revocation | Architecture only |
+| Threat Intelligence | Versioned threats mapped to tests | Roadmap |
+| Command Plane | Tenant and operator workflows | Roadmap |
 
-## Classification
+## ARP-100 catalog
 
-| Label | Meaning |
-|-------|---------|
-| **IMPLEMENTED** | Code or docs present |
-| **VALIDATED** | Tests + reproducible evidence |
-| **PRODUCTION** | Live deploy + monitoring + recovery proven |
+`attack-catalog/arp-100.v1.json` contains 100 structured cases across four suites, 25 each:
+- Prompt injection
+- Denial of wallet
+- Fail-closed constitutional controls
+- Privacy and data protection
 
-## Four oceans + pioneer track
+Cases use safe fixtures. Active adversarial execution requires an explicitly authorized isolated clone. Destructive operations are simulated. Synthetic control cases check against over-blocking. Missing observations fail closed. A passing campaign is not automatically a VBC certificate.
 
-1. Zero-Trust Agentic Edge  
-2. Algorithmic Provenance  
-3. Stateful Micro-Edge  
-4. Sovereign Economic Middleware  
-5. **Pioneer 2030** — privacy audit track, algorithmic coverage, inter-agent intention  
-
-## Core modules
+## Existing ATI capabilities
 
 | Module | Role |
-|--------|------|
-| `decision-lifecycle` | State machine IDENTIFY→…→AUDIT |
-| `constitution` | Executable agent limits |
-| `hmac-passport` | Open Decision Passport (HMAC-SHA256) |
-| `zk/commitment-passport` | Privacy-oriented commitments |
-| `insurance/coverage-protocol` | Seal + kill-switch |
-| `poi/proof-of-intention` | Cross-agent handshake |
-| `economic-passport` | Cost estimate structure |
+|---|---|
+| `decision-lifecycle` | Decision state machine |
+| `constitution` | Executable agent constraints |
+| `hmac-passport` | Shared-secret HMAC integrity passport |
+| `zk/commitment-passport` | Hash commitments and predicate claims; not a full SNARK |
+| `insurance/coverage-protocol` | Coverage seal and kill-switch scaffold; not regulated insurance |
+| `poi/proof-of-intention` | Inter-agent handshake scaffold |
+| `economic-passport` | Cost-estimate structure |
+
+## Validation labels
+
+- **IMPLEMENTED:** source or documentation exists.
+- **VALIDATED:** reproducible tests and evidence pass.
+- **STAGING:** deployed to a non-production environment with reviewed configuration.
+- **PRODUCTION:** approved deployment, monitoring, rollback, backup/restore and incident procedures demonstrated.
+
+## Explicit non-claims
+
+- No active scanning of live third-party agents or production ASTON OS.
+- The Service Binding client is a transport adapter only; no Worker binding or target endpoint is configured.
+- No Sandbox execution adapter or atomic Durable Object budget reservation yet.
+- No R2 immutability claim until retention/versioning is verified.
+- No public-verifiable asymmetric or post-quantum certificate issuance yet.
+- No Bitcoin/OpenTimestamps integration.
+- No regulated insurance, legal safe harbor or universal safety guarantee.
+- No production or staging deployment is claimed.
+
+## Tests
 
 ```bash
 npm test
 ```
 
-## Explicit non-claims
+## Runtime integration
 
-- Full zero-knowledge SNARK/STARK circuits **not** shipped  
-- On-chain collateral / regulated insurance **not** shipped  
-- Universal agent TCP/IP network **not** shipped  
-- OpenTimestamps / Bitcoin anchoring **not** integrated  
-- Quantum resistance **not** asserted  
+The Cloudflare Service Binding transport helper is implemented and unit-tested, but it is not connected to a live Worker. The target Worker was inspected read-only; no target-side code, Wrangler bindings, secrets, databases, queues, migrations or deployments were changed. A staging clone and isolated data resources must be prepared before configuring the binding.
 
-## Worker endpoints (trust branch)
-
-```
-GET  /v1/trust/status
-POST /v1/trust/e2e
-POST /v1/trust/verify
-POST /v1/trust/constitution/evaluate
-```
-
-Secrets: `PII_HMAC_SECRET` or `API_KEY`.
-
-## License & governance
-
-See [LICENSING.md](LICENSING.md). Audit-first; human-authorized mutation only.
+See `docs/ASTON-OS-TRUST-FABRIC-MASTER-ARCHITECTURE.md`, `docs/ASTON-OS-21X-INTEGRATION-PLAN.md`, and `docs/ASTON-OS-AUDIT-TRANSPORT-CONTRACT.md`.

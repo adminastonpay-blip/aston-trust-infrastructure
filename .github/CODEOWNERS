@@ -1,0 +1,7 @@
+# Route security-sensitive changes to the repository owner for review.
+/.github/ @adminastonpay-blip
+/src/guardian/ @adminastonpay-blip
+/src/audit/ @adminastonpay-blip
+/src/integration/ @adminastonpay-blip
+/attack-catalog/ @adminastonpay-blip
+/spec/ @adminastonpay-blip
