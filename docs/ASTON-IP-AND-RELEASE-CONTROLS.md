@@ -5,7 +5,9 @@
 ## 1. Default disclosure rule
 No component is open source merely because it is hosted on GitHub. Unless a valid license is deliberately approved and attached to the relevant files or repository, the default operational position is All Rights Reserved. This is a governance instruction, not a legal opinion about ownership or enforceability.
 
-Do not add an OSI license, patent grant, broad reuse permission, or public contribution terms without explicit owner-approved legal review.
+**Existing ARP-1 carve-out:** The public repository adminastonpay-blip/aston-risk-protocol currently declares the ARP-1 specification text under CC BY 4.0, subject to the ownership/authority qualification in its licensing notice. That existing grant must be treated according to its actual terms. Do not claim that later edits, repository privacy changes, or this ATI policy retroactively revoke permissions already granted for prior versions. Review the exact licensed material and version with counsel before changing future licensing.
+
+Do not add an OSI license, patent grant, broad reuse permission, or public contribution terms to ATI without explicit owner-approved legal review.
 
 ## 2. Two disclosure planes
 
