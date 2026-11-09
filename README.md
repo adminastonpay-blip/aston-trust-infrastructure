@@ -1,6 +1,21 @@
-[![OpenSSF Best Practices](https://bestpractices.dev/projects/16467/badge)](https://bestpractices.dev/projects/16467)
+[![OpenSSF Best Practices](https://bestpractices.dev/projects/16476/badge)](https://bestpractices.dev/projects/16476)
 
 # ASTON TRUST INFRASTRUCTURE (ATI)
+
+## OpenSSF Best Practices — verified project status
+
+**Project:** [aston-trust-infrastructure](https://www.bestpractices.dev/projects/16476)  
+**OpenSSF project ID:** `16476`  
+**Badge status shown in the owner-provided screenshots (2026-11-09):** **Passing**  
+**Passing level completion shown:** **100%**  
+**Progress by levels shown in the owner dashboard:** **113%**. OpenSSF explains this field as 100% for Passing plus progress beyond the highest achieved badge level; it must not be described as a 113% Passing score or as Silver/Gold.  
+**Visible criteria in the screenshot:** Fundamentos 13/13; Control de cambios 9/9; Informes 8/8; Calidad 13/13; Seguridad 16/16; Análisis 8/8 (67/67 displayed items).
+
+The badge is a project self-assessment in the OpenSSF Best Practices program. It is not an independent security audit, product certification, ISO certification, or proof that every deployment is secure. The status above is recorded from screenshots supplied by the project owner on 2026-11-09; the live badge is dynamic and should be checked at the official project page before reuse in external claims.
+
+Official records: [Project assessment](https://www.bestpractices.dev/projects/16476) · [Dynamic badge](https://bestpractices.dev/projects/16476/badge)
+
+---
 
 **Version:** 2.0.0-draft + Pioneer Layer 2030 scaffolds  
 **Status:** Architectural specification + reference prototype (not production-certified)  
