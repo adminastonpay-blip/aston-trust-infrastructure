@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "echo \"Typecheck runs in the Worker repo; this package is source reference\""
+    "check": "echo \"Typecheck runs in the Worker repo; this package is source reference\"",
+    "coss:validate": "node scripts/validate-coss-catalog.mjs"
   },
   "license": "UNLICENSED",
   "keywords": [
