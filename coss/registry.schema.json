@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aston.example/schemas/coss-registry.schema.json",
+  "title": "ATI COSS Control Registry Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "standard",
+    "source_snapshot",
+    "control_id",
+    "domain",
+    "tier",
+    "title",
+    "source_url",
+    "record_kind"
+  ],
+  "properties": {
+    "standard": {
+      "const": "CISOKit Open Security Standard"
+    },
+    "source_snapshot": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Exact upstream version or dated snapshot; never invent a version."
+    },
+    "control_id": {
+      "type": "string",
+      "pattern": "^[A-Z]{2,5}-[0-9]{1,3}$"
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tier": {
+      "enum": [
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "record_kind": {
+      "enum": [
+        "illustrative",
+        "canonical_import"
+      ]
+    },
+    "mappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "framework",
+          "control_ids"
+        ],
+        "properties": {
+          "framework": {
+            "enum": [
+              "CIS Controls v8",
+              "NIST SP 800-53 Rev 5",
+              "ISO/IEC 27001:2022",
+              "SOC 2 TSC",
+              "NIST CSF 2.0",
+              "HIPAA NPRM"
+            ]
+          },
+          "control_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}
