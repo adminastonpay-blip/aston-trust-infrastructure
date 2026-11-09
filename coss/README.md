@@ -34,10 +34,14 @@ Never infer compliance from a README, a planned feature, a passing unit test, or
 
 The published COSS crosswalk currently presents 107 control rows and mappings to several frameworks. Import the complete catalogue only after confirming CISOKit's current terms, permitted redistribution, canonical version identifier, and source integrity. Until then this repository contains only a few clearly labelled illustrative records.
 
+## Phase 2 progress
+
+A deterministic catalog validator and provenance contract are now available in [`PHASE-2-INGESTION.md`](PHASE-2-INGESTION.md). The complete upstream catalogue remains intentionally unimported until redistribution terms and a canonical snapshot are verified.
+
 ## Next phases
 
-1. **Phase 1 — contract and boundary:** schemas, sample records, and evidence rules (this change).
-2. **Phase 2 — ingestion:** obtain an authorized canonical catalogue, validate it, pin its version and digest, and implement deterministic import.
+1. **Phase 1 — contract and boundary:** schemas, sample records, and evidence rules (implemented).
+2. **Phase 2 — ingestion:** validator and provenance contract implemented; authorized full-catalog import pending.
 3. **Phase 3 — assessment engine:** scoring, scope, reviewer approvals, findings, and remediation tracking.
 4. **Phase 4 — crosswalk engine:** map controls to external frameworks without claiming equivalence or certification.
 5. **Phase 5 — continuous evidence:** CI and runtime collectors with provenance, expiry, and tamper-evident audit history.
