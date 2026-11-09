@@ -1,3 +1,5 @@
+[![OpenSSF Best Practices](https://bestpractices.dev/projects/16467/badge)](https://bestpractices.dev/projects/16467)
+
 # ASTON TRUST INFRASTRUCTURE (ATI)
 
 **Version:** 2.0.0-draft + Pioneer Layer 2030 scaffolds  
