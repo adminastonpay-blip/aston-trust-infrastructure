@@ -37,6 +37,10 @@ See [spec/PIONEER-2030.md](spec/PIONEER-2030.md) and [docs/PIONEER-ROADMAP.md](d
 4. Sovereign Economic Middleware  
 5. **Pioneer 2030** — privacy audit track, algorithmic coverage, inter-agent intention  
 
+## Security assurance integration
+
+ATI includes an additive COSS integration scaffold in [`coss/`](coss/README.md). It defines versioned registry and evidence-assessment contracts; it is not a completed assessment, certification, or CISOKit endorsement. The initial registry sample is illustrative only.
+
 ## Core modules
 
 | Module | Role |
