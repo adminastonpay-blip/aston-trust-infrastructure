@@ -115,6 +115,20 @@ describe("CORE 1.0 SafetyInterlock and ModelRunner", () => {
     expect(first.status).toBe(200);
     expect((await first.json()).ok).toBe(true);
     expect(calls).toBe(1);
+    const observedLedger = env.STAGING_INVOCATION_LEDGER.get(env.STAGING_INVOCATION_LEDGER.idFromName(firstId));
+    const ledgerResponse = await observedLedger.fetch("https://staging-ledger/count", {
+      headers: { "x-correlation-id": firstId }
+    });
+    expect((await ledgerResponse.json()).model_invocations).toBe(1);
+
+    const replay = await worker.fetch(
+      certRequest("https://aston.test/v1/pep/agents/" + agentId + "/model", {
+        model, inputs: { prompt: "replay must not execute" }
+      }, tlsClientAuth, firstId),
+      runtimeEnv, {}
+    );
+    expect(replay.status).toBe(409);
+    expect(calls).toBe(1);
 
     const deniedId = "model-denied-" + suffix;
     const wrongModel = await worker.fetch(
