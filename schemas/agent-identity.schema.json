@@ -25,7 +25,7 @@
       "type": "string",
       "minLength": 8,
       "maxLength": 512,
-      "pattern": "^(urn:uuid:[0-9a-fA-F-]{36}|did:[a-z0-9]+:.+)$",
+      "pattern": "^(urn:uuid:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|did:[a-z0-9]+:.+)$",
       "description": "Stable agent identifier. CORE 1.0 permits URN UUID or a syntactically valid DID; DID method resolution is outside this schema."
     },
     "organization": {
@@ -115,10 +115,10 @@
     "proof": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "created", "verificationMethod", "canonicalization", "proofPurpose", "signature"],
+      "required": ["type", "created", "verificationMethod", "canonicalization", "digestAlgorithm", "proofPurpose", "algorithm", "signature"],
       "properties": {
         "type": {
-          "const": "JsonWebSignature2020"
+          "const": "ASTON-JCS-Ed25519-v1"
         },
         "created": {
           "type": "string",
@@ -128,7 +128,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 512,
-          "description": "Key identifier controlled by the organization issuer."
+          "description": "Organization issuer key identifier; the organization owner signs the canonical identity snapshot. Agent proof-of-possession is a separate registration challenge."
         },
         "canonicalization": {
           "const": "RFC8785"
@@ -141,7 +141,7 @@
           "minLength": 16,
           "maxLength": 4096,
           "contentEncoding": "base64url",
-          "description": "Detached or enveloped signature representation as defined by the implementation profile; the API contract must fix the exact serialization before coding."
+          "description": "Base64url Ed25519 signature over SHA-256(JCS(identity payload excluding proof)); base64url without padding."
         },
         "algorithm": {
           "type": "string",
