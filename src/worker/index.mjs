@@ -28,7 +28,8 @@ export default {
       try {
         const stub = agentStub(env, organizationId, adminMatch[1]);
         return await stub.fetch("https://agent-identity/revoke", {
-          method: "POST", headers: { "content-type": "application/json" },
+          method: "POST",
+          headers: { "content-type": "application/json", "x-aston-tenant": organizationId },
           body: JSON.stringify(body)
         });
       } catch {
@@ -48,7 +49,8 @@ export default {
       try {
         const stub = agentStub(env, auth.principal.organizationId, pepMatch[1]);
         return await stub.fetch("https://agent-identity/" + action, {
-          method: "POST", headers: { "content-type": "application/json" },
+          method: "POST",
+          headers: { "content-type": "application/json", "x-aston-tenant": auth.principal.organizationId },
           body: JSON.stringify(body)
         });
       } catch {
