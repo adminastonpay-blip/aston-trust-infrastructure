@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aston.example/schemas/agent-identity.schema.json",
+  "$id": "urn:aston:schema:agent-identity:1.0",
   "title": "ASTON CORE 1.0 Agent Identity Passport",
   "description": "Portable, signed identity snapshot for an autonomous agent. This document contains public keys only and is not, by itself, an authorization token.",
   "type": "object",
