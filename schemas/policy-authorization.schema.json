@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aston.example/schemas/policy-authorization.schema.json",
   "title": "ASTON CORE 1.0 Policy Authorization Grant",
-  "description": "A tenant-scoped, time-bounded grant that limits the actions an agent may request. The grant is not an authorization decision and must be evaluated online for every protected action.",
+  "description": "A tenant-scoped, time-bounded, per-agent grant. Budget counters are enforced by the authoritative Durable Object for this agent. This grant is not an authorization decision and must be evaluated online for every protected action.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -310,7 +310,7 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991,
-          "description": "Maximum spend in integer minor currency units; never use floating-point amounts."
+          "description": "Maximum spend in integer minor currency units; never use floating-point amounts. CORE 1.0 budgets are scoped to this single agent and policy grant; organization-wide aggregate budgets across agents are out of scope."
         },
         "currency": {
           "type": "string",
