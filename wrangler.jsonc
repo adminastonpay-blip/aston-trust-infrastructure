@@ -5,14 +5,17 @@
   "compatibility_date": "2026-11-12",
   "durable_objects": {
     "bindings": [
-      { "name": "AGENT_IDENTITY", "class_name": "AgentIdentity" }
+      { "name": "AGENT_IDENTITY", "class_name": "AgentIdentity" },
+      { "name": "STAGING_INVOCATION_LEDGER", "class_name": "StagingInvocationLedger" }
     ]
   },
   "migrations": [
-    { "tag": "core-1.0-sqlite-v1", "new_sqlite_classes": ["AgentIdentity"] }
+    { "tag": "core-1.0-sqlite-v1", "new_sqlite_classes": ["AgentIdentity"] },
+    { "tag": "core-1.0-staging-ledger-v2", "new_sqlite_classes": ["StagingInvocationLedger"] }
   ],
   "vars": {
-    "ACCESS_ADMIN_ROLE": "aston-admin"
+    "ACCESS_ADMIN_ROLE": "aston-admin",
+    "STAGING_HARNESS_ENABLED": "false"
   },
   "observability": { "enabled": false }
 }
