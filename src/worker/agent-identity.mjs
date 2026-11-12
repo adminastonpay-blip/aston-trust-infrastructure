@@ -72,13 +72,13 @@ export class AgentIdentity {
   }
 
   async register({ organizationId, agentId, identity, policyId, policyVersion, currency, budgetTotalMinor, policyGrant }) {
-    if (!organizationId || !agentId || identity?.agentId !== agentId || identity?.status !== "active" ||
-        !Number.isFinite(Date.parse(identity?.issuedAt || "")) || !Number.isFinite(Date.parse(identity?.expiresAt || "")) ||
-        Date.parse(identity.expiresAt) <= Date.now() || !policyId || !Number.isSafeInteger(budgetTotalMinor) ||
+    if (!organizationId || !agentId || !policyId || !Number.isSafeInteger(budgetTotalMinor) ||
         budgetTotalMinor < 0 || !/^[A-Z]{3}$/.test(currency ?? "")) {
       throw new CoreError("INVALID_REGISTRATION", "Invalid agent registration", 400);
     }
-    if (policyGrant && (policyGrant.policyId !== policyId || policyGrant.policyVersion !== policyVersion ||
+    if (policyGrant && (identity?.agentId !== agentId || identity?.status !== "active" ||
+        !Number.isFinite(Date.parse(identity?.issuedAt || "")) || !Number.isFinite(Date.parse(identity?.expiresAt || "")) ||
+        Date.parse(identity.expiresAt) <= Date.now() || policyGrant.policyId !== policyId || policyGrant.policyVersion !== policyVersion ||
         policyGrant.organizationId !== organizationId || policyGrant.subject?.agentId !== agentId ||
         policyGrant.effect !== "allow" || policyGrant.status !== "active" ||
         !Array.isArray(policyGrant.actions) || !Array.isArray(policyGrant.resources))) {
