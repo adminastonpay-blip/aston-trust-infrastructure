@@ -19,12 +19,6 @@ function forbidden(code = "FORBIDDEN") {
   return { ok: false, status: 403, code };
 }
 
-/**
- * Verify Cloudflare Access JWT. Production must provide ACCESS_JWKS_URL,
- * ACCESS_ISSUER and ACCESS_AUD. ACCESS_JWKS_JSON exists only to make local
- * integration tests deterministic and must not be populated with test keys
- * in a deployed environment.
- */
 export async function verifyAccessAdministrator(request, env, nowMs = Date.now()) {
   const token = request.headers.get("Cf-Access-Jwt-Assertion");
   if (!token) return unauthorized("ACCESS_JWT_MISSING");
@@ -85,8 +79,10 @@ export async function verifyAccessAdministrator(request, env, nowMs = Date.now()
 }
 
 /**
- * Authenticate a PEP using Cloudflare's trusted request.cf.tlsClientAuth fields.
- * Client-supplied HTTP headers are deliberately never consulted.
+ * Authenticate a PEP from Cloudflare's trusted TLS metadata and a pinned
+ * service-principal allowlist. PEP_REVOKED_PRINCIPALS is an independent,
+ * deny-first runtime revocation list; a valid administrator JWT cannot
+ * override a revoked PEP certificate principal.
  */
 export function verifyPepMtls(request, env, nowMs = Date.now()) {
   const tls = request.cf?.tlsClientAuth;
@@ -98,11 +94,18 @@ export function verifyPepMtls(request, env, nowMs = Date.now()) {
   if (!Number.isFinite(notAfter) || notAfter <= nowMs) return forbidden("MTLS_CERTIFICATE_EXPIRED");
 
   let allowlist;
+  let revokedPrincipals;
   try {
     allowlist = JSON.parse(env.PEP_CERT_ALLOWLIST || "[]");
+    revokedPrincipals = JSON.parse(env.PEP_REVOKED_PRINCIPALS || "[]");
+    if (!Array.isArray(allowlist) || !Array.isArray(revokedPrincipals) ||
+        revokedPrincipals.some((value) => typeof value !== "string")) {
+      return forbidden("MTLS_REVOCATION_CONFIG_INVALID");
+    }
   } catch {
     return forbidden("MTLS_ALLOWLIST_INVALID");
   }
+
   const fingerprint = String(tls.certFingerprintSHA256 || "").toLowerCase().replaceAll(":", "");
   const match = allowlist.find((entry) =>
     String(entry.fingerprintSHA256 || "").toLowerCase().replaceAll(":", "") === fingerprint &&
@@ -111,6 +114,9 @@ export function verifyPepMtls(request, env, nowMs = Date.now()) {
   );
   if (!match || !match.servicePrincipalId || !match.organizationId) {
     return forbidden("MTLS_PRINCIPAL_NOT_ALLOWLISTED");
+  }
+  if (revokedPrincipals.includes(match.servicePrincipalId)) {
+    return forbidden("MTLS_PRINCIPAL_REVOKED");
   }
   return { ok: true, principal: {
     servicePrincipalId: match.servicePrincipalId,
