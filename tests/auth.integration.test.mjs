@@ -85,11 +85,12 @@ describe("Cloudflare mTLS PEP boundary", () => {
       subjectDNRFC2253: cert.certSubjectDNRFC2253,
       servicePrincipalId: "pep-test-01", organizationId: "org-test",
       permittedActions: ["reserve", "consume", "settle"]
-    }])
+    }]),
+    PEP_REVOKED_PRINCIPALS: "[]"
   };
-  function requestWithCert(tlsClientAuth) {
+  function requestWithCert(tlsClientAuth, headers = {}) {
     const request = new Request("https://aston.test/v1/pep/agents/agent-1/reserve", {
-      method: "POST", body: JSON.stringify({ amountMinor: 1 })
+      method: "POST", headers, body: JSON.stringify({ amountMinor: 1 })
     });
     Object.defineProperty(request, "cf", { value: { tlsClientAuth } });
     return request;
@@ -115,5 +116,38 @@ describe("Cloudflare mTLS PEP boundary", () => {
   it("rejects missing client certificates with 401", async () => {
     const response = await worker.fetch(requestWithCert({ certPresented: "0", certVerified: "NONE", certRevoked: "0" }), pepEnv, noBinding);
     expect(response.status).toBe(401);
+  });
+
+  it("blocks the next request after an authorized PEP is revoked, even with a valid Access JWT", async () => {
+    let forwarded = 0;
+    let forwardedTenant = null;
+    const binding = {
+      idFromName: (name) => name,
+      get: () => ({
+        fetch: async (_url, init) => {
+          forwarded += 1;
+          forwardedTenant = new Headers(init.headers).get("x-aston-tenant");
+          return Response.json({ ok: true, result: { state: "reserved" } });
+        }
+      })
+    };
+    const runtimeEnv = { ...pepEnv, AGENT_IDENTITY: binding };
+    const validJwt = await token();
+    const first = await worker.fetch(
+      requestWithCert(cert, { "Cf-Access-Jwt-Assertion": validJwt }),
+      runtimeEnv, noBinding
+    );
+    expect(first.status).toBe(200);
+    expect(forwarded).toBe(1);
+    expect(forwardedTenant).toBe("org-test");
+
+    runtimeEnv.PEP_REVOKED_PRINCIPALS = JSON.stringify(["pep-test-01"]);
+    const next = await worker.fetch(
+      requestWithCert(cert, { "Cf-Access-Jwt-Assertion": validJwt }),
+      runtimeEnv, noBinding
+    );
+    expect(next.status).toBe(403);
+    expect((await next.json()).error).toBe("MTLS_PRINCIPAL_REVOKED");
+    expect(forwarded).toBe(1);
   });
 });
