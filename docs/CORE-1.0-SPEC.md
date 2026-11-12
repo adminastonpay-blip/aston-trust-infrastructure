@@ -1,6 +1,6 @@
 # ASTON TRUST FABRIC CORE 1.0 — Technical Specification
 
-**Status:** Draft for review (design only; not implemented)  
+**Status:** Candidate contract — adversarial review incorporated; approval pending  
 **Version:** 1.0.0-draft  
 **Scope:** Portable Agent Identity, Cryptographic Evidence, Fail-Closed Authorization  
 **Repository branch:** `docs/core-1.0-contracts`
@@ -30,6 +30,18 @@ All requests and responses are JSON over HTTPS. JSON schemas in `/schemas` use J
 - **External action system:** the system that performs the protected operation. ASTON authorization does not guarantee that an external system enforces the decision unless integrated as the PEP.
 
 The tenant boundary is mandatory. Every identity, policy, decision, budget, and evidence record MUST be scoped to an immutable `organization_id`. Cross-tenant lookups MUST return no data and MUST NOT disclose whether another tenant's object exists.
+
+## 3A. Cloudflare reference architecture (normative boundary)
+
+CORE 1.0 adopts Cloudflare-native primitives as the target deployment profile, without asserting that any binding or service is currently configured.
+
+- **Human administrators:** Cloudflare Access protects administrative routes. The Worker MUST validate the `Cf-Access-Jwt-Assertion` JWT signature against the Access signing keys, exact issuer, exact application `aud`, `exp`, `nbf`, and any required identity claims/roles. It MUST handle signing-key rotation. It MUST NOT trust `CF_Authorization` cookies as the sole credential, caller-supplied identity headers, or an unverified JWT payload. Administrative mutations require explicit role/tenant authorization after JWT validation.
+- **PEP services over public ingress:** mTLS is required at the protected hostname. The Worker MUST inspect Cloudflare's trusted `request.cf.tlsClientAuth` metadata; require `certPresented === "1"`, `certVerified === "SUCCESS"`, and `certRevoked === "0"`; reject absent, invalid, or revoked certificates; and map a verified certificate identity (preferably a pinned fingerprint/SAN plus issuer) to an allowlisted service principal and permitted tenant/action scope. Trusting any certificate merely because it chains to the CA is insufficient. The Worker MUST NOT accept client-supplied headers as proof of certificate identity.
+- **PEP services within the same Cloudflare account:** a Service Binding MAY replace public mTLS for the Worker-to-Worker hop. The target service SHOULD have no public route. If public ingress exists, it MUST independently authenticate it; possession of a Service Binding name or a spoofable header is not authentication. Service Binding authenticates the service-to-service path, not the autonomous agent; agent proof-of-possession and per-request authorization remain required.
+- **Agent cryptographic identity:** agent keys sign challenge proofs and evidence. They are not interchangeable with Access administrator JWTs or PEP mTLS certificates.
+- **No implicit fallback:** if the required Access JWT, mTLS metadata, service binding context, agent signature, or principal mapping cannot be verified, deny.
+
+Cloudflare Access service tokens are a separate service-credential option, not equivalent to a human Access JWT. CORE 1.0 selects mTLS or a private Service Binding for PEP-to-Core calls; service tokens are not an automatic fallback.
 
 ## 4. Lifecycle state machine
 
@@ -88,24 +100,22 @@ The PDP MUST validate all of the following at decision time:
 
 The decision MUST be `ALLOW` or `DENY`; there is no permissive `UNKNOWN` state. An unavailable dependency results in `DENY` with a machine-readable reason such as `DEPENDENCY_UNAVAILABLE`. An allow decision is short-lived, single-use, bound to the request digest, tenant, agent, action, resource, policy version, and expiry. The PEP MUST reject replay, mismatched context, expired decisions, or decisions already consumed.
 
-Authorization MUST occur as close as practical to the protected action. For high-risk actions, the PEP SHOULD reserve budget atomically before execution and settle actual usage after execution. If reservation cannot be confirmed, the action MUST NOT start.
+Authorization MUST occur as close as practical to the protected action. The authoritative per-agent budget ledger and revocation state reside in one SQLite-backed Durable Object (DO) per `organization_id + agent_id`. Every authorization, decision consumption, budget reservation/settlement, key status transition, and agent/grant revocation for that agent MUST be routed through that same DO. The DO MUST perform the read-check-write state transition in a SQLite transaction (or an equivalent documented atomic storage operation), with no external network `await` inside the transaction. A single-threaded event loop alone is not the transaction guarantee. Each mutation MUST carry an idempotency key and a monotonically increasing state sequence. If storage/transaction completion is uncertain, deny and reconcile by idempotency key before retry. A failed or uncertain budget reservation means the protected action MUST NOT start. CORE 1.0 budgets are per-agent only; organization-wide shared budgets spanning multiple agents are explicitly out of scope until a separately coordinated ledger is designed.
 
-### 4.5 Evidence recording
+### 4.5 Evidence recording and cryptographic serialization
 
-After an authorization decision and action attempt, the submitting component creates an evidence envelope containing at minimum:
-- schema and protocol version;
-- globally unique event and request identifiers;
-- tenant, agent, key identifier, and policy identifier/version;
-- action and resource identifiers;
-- decision identifier, decision outcome, and decision timestamp;
-- execution start/end timestamps and outcome, if an action was attempted;
-- canonical payload digest and digest algorithm;
-- previous-event digest or explicit chain-start marker;
-- signer algorithm and detached signature.
+The normative evidence object is defined by `schemas/evidence-event.schema.json`. The envelope has a deliberately non-self-referential digest/signature construction:
 
-The signature covers the canonicalized envelope excluding the signature field itself. Canonicalization MUST be deterministic and specified consistently by all implementations (CORE 1.0 selects RFC 8785 JSON Canonicalization Scheme). The signature algorithm MUST be allowlisted; CORE 1.0 baseline is Ed25519 (`EdDSA`). Implementations MUST reject algorithm substitution and unknown critical fields.
+1. Build the `core` object using exactly the fields defined by the evidence schema, excluding `eventDigest` and `signature`.
+2. Canonicalize the complete `core` object using RFC 8785 JSON Canonicalization Scheme (JCS), UTF-8 encoded, with no byte-order mark and no trailing newline.
+3. Compute `eventDigest = SHA-256(JCS(core))`; encode the digest as 64 lowercase hexadecimal characters.
+4. If a payload is included in a future compatible profile, compute `payloadDigest = SHA-256(JCS(payload))` independently. CORE 1.0 stores payload content by reference or omission; the event schema carries its digest, not arbitrary raw payload bytes.
+5. The signer signs the raw 32-byte `eventDigest` using Ed25519. The signature is base64url without padding. The signature object MUST declare `EdDSA` and the exact `keyId`.
+6. The final envelope is `core + eventDigest + signature`. Verifiers MUST recompute the digest from the received core and verify the signature over those 32 bytes. They MUST reject duplicate JSON member names before canonicalization, unsupported algorithms, malformed encodings, and unknown security-critical fields.
 
-Evidence submission MUST be append-only. Corrections are new linked events; existing evidence MUST NOT be overwritten. Evidence storage SHOULD be immutable/WORM-capable with access logging and retention policy. A hash or signature establishes integrity/attribution under the relevant key, not truth, completeness, or legal admissibility.
+JCS does not itself define the hash or signature; the ordered construction above does. Do not hash a JSON serialization containing its own digest or signature. `previousEventDigest` links to the prior event's `eventDigest`; the first event uses an explicit null chain predecessor. Trusted timestamp receipts, including any future OpenTimestamps proof, are separate detached artifacts over the event digest and are not included in the signed core.
+
+The signer is explicitly identified as either the agent or the PEP. A PEP-signed event attests to the PEP's observation; an agent-signed event attests to the agent's statement. Neither alone proves external-world truth. Events are append-only. Corrections are new events referencing the superseded event. Evidence persistence MUST be confirmed before the API returns acceptance.
 
 ### 4.6 Independent verification
 
@@ -125,7 +135,7 @@ The result is a structured report with `VALID`, `INVALID`, or `INDETERMINATE` an
 
 Suspension temporarily blocks new authorizations and can be lifted by an authorized administrator. Revocation permanently invalidates an identity or a specific key/grant for future authorization. Revocation records MUST include actor, reason code, effective time, sequence/version, and signed administrative evidence.
 
-Revocation MUST invalidate cached allow decisions and outstanding unused authorization tokens. Implementations MUST use short decision TTLs and a revocation propagation mechanism; if current revocation state cannot be established, authorization is denied. Evidence already accepted remains immutable and verifiable as historical evidence.
+Agent/key/grant revocation MUST be committed through the agent's authoritative DO and increment its state sequence. The `/v1/authorization/consume` operation MUST re-check revocation and policy version in that same DO at the point of consumption; therefore an allow decision issued before a committed revocation cannot be consumed afterward. No cached allow decision bypasses this check. Tenant-wide/global emergency deny state is a separate authoritative dependency: if it is unavailable or stale, every affected authorization is denied. Cross-agent revocation fan-out is not claimed to be instantaneous; CORE 1.0 defines per-agent linearization only. If an identity or policy change affects multiple agents, all affected agent DOs must be updated/confirmed before the change is reported as globally effective. Evidence already accepted remains immutable and verifiable as historical evidence.
 
 ## 5. Fail-Closed requirements
 
@@ -133,7 +143,7 @@ Revocation MUST invalidate cached allow decisions and outstanding unused authori
 
 ### 5.1 Database unavailable or uncertain
 
-If the authoritative database is unavailable, times out, returns a partial result, has an uncertain commit, or cannot provide a consistent read:
+If the authoritative DO/SQLite storage is unavailable, times out, returns a partial result, a transaction aborts, or commit outcome is uncertain:
 - the PDP MUST return `DENY / DEPENDENCY_UNAVAILABLE`;
 - the PEP MUST NOT start the protected action;
 - no cached positive decision may be used as a fallback;
@@ -145,7 +155,7 @@ A database write that may have committed but whose outcome is unknown MUST be re
 
 ### 5.2 Identity service unavailable
 
-If the identity service cannot confirm current identity, key, tenant, or revocation status, the PDP MUST deny. A previously cached signed identity snapshot MAY be used for offline evidence verification, but MUST NOT authorize a new high-risk action. CORE 1.0 does not define an offline authorization mode.
+If the identity authority or the agent's DO cannot confirm current identity, key, tenant, policy version, budget, or revocation status, the PDP MUST deny. There is no KV cache fallback for an allow decision. A previously cached signed identity snapshot MAY be used for offline evidence verification, but MUST NOT authorize a new high-risk action. CORE 1.0 does not define an offline authorization mode.
 
 ### 5.3 Policy service or revocation feed unavailable
 
@@ -210,13 +220,13 @@ Unknown extensions MUST be namespaced and MUST NOT alter security semantics. A v
 
 The specification is ready for implementation planning only when reviewers agree on:
 - identity/key format and proof-of-possession;
-- organization administrator authentication and separation of duties;
+- Cloudflare Access JWT validation, administrator roles, and separation of duties;\n- PEP mTLS certificate identity mapping or private Service Binding isolation;
 - policy matching semantics and deny precedence;
 - budget reservation/settlement consistency;
 - authorization decision TTL and single-use enforcement;
 - canonicalization/signature profile;
-- evidence envelope and independent verifier inputs;
-- revocation propagation and cache invalidation;
+- evidence envelope JSON Schema, RFC 8785 JCS + SHA-256 digest construction, and Ed25519 signature profile;
+- per-agent DO revocation linearization, tenant/global deny behavior, and cache invalidation;
 - database/identity/policy outage behavior;
 - tenant isolation and privacy/retention controls.
 
@@ -228,6 +238,21 @@ Implementation MUST add positive, negative, concurrency, replay, outage, stale-c
 - `schemas/policy-authorization.schema.json`
 - `docs/API-CONTRACT.md`
 
-## 12. Status statement
+## 12. Reserved
 
 This document is a proposed technical contract. It does not assert that CORE 1.0 endpoints, schemas, runtime enforcement, cryptographic verification, or production fail-closed behavior are implemented. Existing repository modules are not silently reclassified as CORE 1.0 components by this specification.
+
+
+## 12A. Cloudflare implementation constraints and documented limits
+
+The implementation profile SHOULD use SQLite-backed Durable Objects, which Cloudflare recommends for new namespaces. Each agent object owns only that agent's mutable authorization state. A tenant-level/global emergency deny control is separate and must be consulted fail-closed; it cannot be represented as if all per-agent objects update atomically.
+
+Cloudflare Durable Objects are single-threaded coordination primitives, but asynchronous operations can allow event interleaving. Use explicit transactions for related read/modify/write operations. Never hold a storage transaction open while calling an external service. SQLite-backed DO transactions are the authority for budget reservation and state transitions; an in-memory mutex or single-threaded assumption is insufficient.
+
+The per-agent DO is a serialization and throughput boundary. It prevents concurrent spends against that agent's ledger when all relevant mutations route to the same object, but it does not provide atomicity across multiple agents, multiple DOs, external payment providers, or external action systems. Those cases require a separately specified distributed ledger/saga and reconciliation protocol.
+
+For incoming mTLS, the Worker must use the documented `request.cf.tlsClientAuth` properties and exact runtime values, not infer validity from arbitrary forwarded certificate headers. Cloudflare's BYOCA support for inbound client certificate validation is plan-dependent; if the account does not have the required entitlement, use Cloudflare-managed CA within its published limits or another explicitly reviewed ingress architecture. Service Bindings are internal Worker-to-Worker calls and require the target Worker to be deployed/configured in the same account; they do not authenticate end-user agents.
+
+## 13. Status statement
+
+This document is a proposed technical contract. It does not assert that CORE 1.0 endpoints, schemas, runtime enforcement, or production fail-closed behavior are implemented. Existing repository modules are not silently reclassified as CORE 1.0 components by this specification.
