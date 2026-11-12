@@ -40,6 +40,9 @@ export class AgentIdentity {
         state_seq INTEGER NOT NULL DEFAULT 1
       )
     `);
+    this.sql.exec("CREATE TABLE IF NOT EXISTS model_execution_state (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), invocation_count INTEGER NOT NULL DEFAULT 0, budget_spent_minor INTEGER NOT NULL DEFAULT 0)");
+    this.sql.exec("INSERT OR IGNORE INTO model_execution_state (singleton, invocation_count, budget_spent_minor) VALUES (1, 0, 0)");
+    this.sql.exec("CREATE TABLE IF NOT EXISTS model_executions (request_id TEXT PRIMARY KEY, expires_at TEXT NOT NULL)");
     this.sql.exec(`
       CREATE TABLE IF NOT EXISTS decisions (
         decision_id TEXT PRIMARY KEY,
@@ -136,6 +139,82 @@ export class AgentIdentity {
     });
   }
 
+  async authorizeModelExecution({ requestId, action, resourceId, modelCostMinor, now = new Date().toISOString() }) {
+    if (!/^[A-Za-z0-9._:-]{8,128}$/.test(requestId ?? "") || action !== "ai.inference" ||
+        typeof resourceId !== "string" || !resourceId || !Number.isSafeInteger(modelCostMinor) || modelCostMinor <= 0) {
+      throw new CoreError("INVALID_MODEL_AUTHORIZATION_REQUEST", "Invalid model authorization request", 400);
+    }
+    return this.#transaction(() => {
+      const agent = this.#agent();
+      if (agent.status !== "active") throw new CoreError("IDENTITY_INACTIVE", "Agent is not active", 403);
+      let identity;
+      try { identity = JSON.parse(agent.identity_json); } catch { throw new CoreError("IDENTITY_RECORD_INVALID", "Identity record is invalid", 503); }
+      const nowMs = Date.parse(now);
+      const identityExpiry = Date.parse(identity.expiresAt || "");
+      if (!Number.isFinite(nowMs) || !Number.isFinite(identityExpiry) || identityExpiry <= nowMs) {
+        throw new CoreError("IDENTITY_EXPIRED_OR_INVALID", "Identity validity cannot be established", 403);
+      }
+      const policy = identity.policyGrant;
+      if (!policy || policy.organizationId !== agent.organization_id || policy.subject?.agentId !== agent.agent_id ||
+          policy.policyId !== agent.policy_id || policy.policyVersion !== agent.policy_version) {
+        throw new CoreError("POLICY_IDENTITY_MISMATCH", "No matching authoritative policy grant", 403);
+      }
+      if (policy.status !== "active" || policy.effect !== "allow") throw new CoreError("POLICY_NOT_ACTIVE", "Policy is not an active allow grant", 403);
+      const issuedAt = Date.parse(policy.issuedAt || "");
+      const notBefore = Date.parse(policy.notBefore || "");
+      const expiresAt = Date.parse(policy.expiresAt || "");
+      if (![issuedAt, notBefore, expiresAt].every(Number.isFinite) || issuedAt > nowMs || notBefore > nowMs || expiresAt <= nowMs) {
+        throw new CoreError("POLICY_OUTSIDE_VALIDITY", "Policy is not currently valid", 403);
+      }
+      if (!Array.isArray(policy.actions) || !policy.actions.includes(action)) throw new CoreError("ACTION_NOT_AUTHORIZED", "Action outside policy scope", 403);
+      if (!Array.isArray(policy.resources) || !policy.resources.some((r) => r.type === "model" && r.resourceId === resourceId)) {
+        throw new CoreError("RESOURCE_NOT_AUTHORIZED", "Model resource outside policy scope", 403);
+      }
+      const limits = policy.constraints || {};
+      if (!Number.isSafeInteger(limits.maxInvocations) || limits.maxInvocations < 1 ||
+          !Number.isSafeInteger(limits.maxExecutionSeconds) || limits.maxExecutionSeconds < 1) {
+        throw new CoreError("POLICY_LIMITS_INVALID", "Required model limits missing", 403);
+      }
+      const budget = limits.budget;
+      if (!budget || budget.period !== "grant_lifetime" || !Number.isSafeInteger(budget.amountMinor) || budget.amountMinor < 0) {
+        throw new CoreError("POLICY_BUDGET_UNSUPPORTED", "Only grant_lifetime budgets are supported for model execution", 403);
+      }
+      if (budget.maxSingleOperationMinor !== undefined && modelCostMinor > budget.maxSingleOperationMinor) {
+        throw new CoreError("SINGLE_OPERATION_BUDGET_EXCEEDED", "Model debit exceeds per-operation limit", 403);
+      }
+      const usage = this.sql.exec("SELECT invocation_count, budget_spent_minor FROM model_execution_state WHERE singleton = 1").toArray()[0];
+      if (usage.invocation_count >= limits.maxInvocations) throw new CoreError("MAX_INVOCATIONS_EXCEEDED", "Invocation limit reached", 403);
+      if (usage.budget_spent_minor + modelCostMinor > Math.min(agent.budget_total, budget.amountMinor)) {
+        throw new CoreError("BUDGET_EXCEEDED", "Policy budget exhausted", 403);
+      }
+      this.sql.exec("DELETE FROM model_executions WHERE expires_at <= ?", now);
+      const active = this.sql.exec("SELECT COUNT(*) AS count FROM model_executions").toArray()[0].count;
+      const maxConcurrent = limits.maxConcurrentExecutions ?? 1;
+      if (!Number.isSafeInteger(maxConcurrent) || maxConcurrent < 1 || active >= maxConcurrent) {
+        throw new CoreError("MAX_CONCURRENCY_EXCEEDED", "Concurrency limit reached", 403);
+      }
+      if (this.sql.exec("SELECT request_id FROM model_executions WHERE request_id = ?", requestId).toArray()[0]) {
+        throw new CoreError("MODEL_REQUEST_REPLAY", "Request ID already used", 409);
+      }
+      const expiry = new Date(nowMs + limits.maxExecutionSeconds * 1000).toISOString();
+      this.sql.exec("INSERT INTO model_executions (request_id, expires_at) VALUES (?, ?)", requestId, expiry);
+      this.sql.exec("UPDATE model_execution_state SET invocation_count = invocation_count + 1, budget_spent_minor = budget_spent_minor + ? WHERE singleton = 1", modelCostMinor);
+      this.sql.exec("UPDATE agent_state SET budget_spent = budget_spent + ?, state_seq = state_seq + 1 WHERE singleton = 1", modelCostMinor);
+      return { decision: "ALLOW", requestId, action, resourceId, organizationId: agent.organization_id,
+        policyId: policy.policyId, policyVersion: policy.policyVersion, maxExecutionSeconds: limits.maxExecutionSeconds,
+        budgetChargeMinor: modelCostMinor };
+    });
+  }
+
+  async finishModelExecution({ requestId }) {
+    if (!/^[A-Za-z0-9._:-]{8,128}$/.test(requestId ?? "")) throw new CoreError("INVALID_MODEL_REQUEST_ID", "Invalid request ID", 400);
+    return this.#transaction(() => {
+      const row = this.sql.exec("SELECT request_id FROM model_executions WHERE request_id = ?", requestId).toArray()[0];
+      if (!row) return { finished: false, replay: true };
+      this.sql.exec("DELETE FROM model_executions WHERE request_id = ?", requestId);
+      return { finished: true, replay: false };
+    });
+  }
   async revoke({ reasonCode }) {
     if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(reasonCode ?? "")) throw new CoreError("INVALID_REASON", "Invalid revocation reason", 400);
     return this.#transaction(() => {
@@ -192,7 +271,9 @@ export class AgentIdentity {
       }
 
       let result;
-      if (url.pathname === "/reserve") result = await this.reserveBudget(body);
+      if (url.pathname === "/authorize-model") result = await this.authorizeModelExecution(body);
+      else if (url.pathname === "/finish-model") result = await this.finishModelExecution(body);
+      else if (url.pathname === "/reserve") result = await this.reserveBudget(body);
       else if (url.pathname === "/consume") result = await this.consumeReservation(body);
       else if (url.pathname === "/settle") result = await this.settleReservation(body);
       else if (url.pathname === "/revoke") result = await this.revoke(body);
