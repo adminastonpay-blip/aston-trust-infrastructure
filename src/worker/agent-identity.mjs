@@ -3,14 +3,24 @@ import { CoreError } from "../core/errors.mjs";
 /**
  * SQLite-backed, per-organization/per-agent Durable Object.
  * The caller must bind one DO instance to exactly one immutable tenant+agent pair.
- * All state-changing operations use transactionSync; no network I/O occurs inside it.
+ * Every internal request must carry the tenant context injected by the trusted Worker.
  */
 export class AgentIdentity {
   constructor(state, env) {
     this.state = state;
     this.env = env;
     this.sql = state.storage.sql;
-    this.state.blockConcurrencyWhile(async () => this.#initialize());
+    this.storageHealthy = true;
+    // Do not let a failed schema/storage initialization fall through to normal
+    // request handling. The instance remains latched closed until it is replaced
+    // after an operator-controlled storage restore.
+    this.state.blockConcurrencyWhile(async () => {
+      try {
+        this.#initialize();
+      } catch {
+        this.storageHealthy = false;
+      }
+    });
   }
 
   #initialize() {
@@ -62,7 +72,7 @@ export class AgentIdentity {
       throw new CoreError("INVALID_REGISTRATION", "Invalid agent registration", 400);
     }
     return this.#transaction(() => {
-      const existing = this.sql.exec("SELECT agent_id FROM agent_state WHERE singleton = 1").toArray()[0];
+      const existing = this.sql.exec("SELECT agent_id, organization_id FROM agent_state WHERE singleton = 1").toArray()[0];
       if (existing && (existing.agent_id !== agentId || existing.organization_id !== organizationId)) {
         throw new CoreError("IDENTITY_BINDING_CONFLICT", "DO is already bound to another identity", 409);
       }
@@ -110,9 +120,6 @@ export class AgentIdentity {
       if (decision.policy_version !== agent.policy_version) throw new CoreError("POLICY_VERSION_STALE", "Policy version changed", 403);
       if (decision.state !== "reserved") throw new CoreError("DECISION_ALREADY_CONSUMED", "Decision is not consumable", 409);
       this.sql.exec("UPDATE decisions SET state = 'consumed' WHERE decision_id = ?", decisionId);
-      // Move the reservation into the spent/encumbered bucket at consume time.
-      // This prevents another reservation from reusing funds while the external
-      // side effect is in flight or its outcome is unknown.
       this.sql.exec("UPDATE agent_state SET budget_reserved = budget_reserved - ?, budget_spent = budget_spent + ?, state_seq = state_seq + 1 WHERE singleton = 1", decision.amount_minor, decision.amount_minor);
       return { decisionId, state: "consumed", amountMinor: decision.amount_minor };
     });
@@ -150,20 +157,56 @@ export class AgentIdentity {
   }
 
   async fetch(request) {
+    if (!this.storageHealthy) {
+      return Response.json({ ok: false, error: "STORAGE_UNAVAILABLE_FAIL_CLOSED" }, { status: 503 });
+    }
     const url = new URL(request.url);
+    if (request.method !== "POST") return Response.json({ error: "METHOD_NOT_ALLOWED" }, { status: 405 });
+
+    let body;
     try {
-      if (request.method !== "POST") return Response.json({ error: "METHOD_NOT_ALLOWED" }, { status: 405 });
-      const body = await request.json();
+      body = await request.json();
+    } catch {
+      return Response.json({ ok: false, error: "INVALID_JSON" }, { status: 400 });
+    }
+
+    const tenantContext = request.headers.get("x-aston-tenant");
+    if (!tenantContext) {
+      return Response.json({ ok: false, error: "TENANT_CONTEXT_REQUIRED" }, { status: 403 });
+    }
+
+    try {
+      if (url.pathname === "/register") {
+        if (tenantContext !== body.organizationId) {
+          return Response.json({ ok: false, error: "TENANT_MISMATCH" }, { status: 403 });
+        }
+        const result = await this.register(body);
+        return Response.json({ ok: true, result });
+      }
+
+      // Bind every non-registration operation to the immutable tenant stored
+      // inside SQLite, not merely to the DO name used by the router.
+      const agent = this.#agent();
+      if (tenantContext !== agent.organization_id) {
+        return Response.json({ ok: false, error: "TENANT_MISMATCH" }, { status: 403 });
+      }
+
       let result;
-      if (url.pathname === "/register") result = await this.register(body);
-      else if (url.pathname === "/reserve") result = await this.reserveBudget(body);
+      if (url.pathname === "/reserve") result = await this.reserveBudget(body);
       else if (url.pathname === "/consume") result = await this.consumeReservation(body);
       else if (url.pathname === "/settle") result = await this.settleReservation(body);
       else if (url.pathname === "/revoke") result = await this.revoke(body);
-      else return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+      else return Response.json({ ok: false, error: "NOT_FOUND" }, { status: 404 });
       return Response.json({ ok: true, result });
     } catch (error) {
-      return Response.json({ ok: false, error: error.code ?? "INTERNAL_ERROR" }, { status: error.status ?? 500 });
+      // CoreError represents a deliberate policy/business rejection. Any
+      // unexpected exception on this path is treated as a storage/runtime
+      // integrity failure and latches the instance closed.
+      if (!(error instanceof CoreError)) this.storageHealthy = false;
+      return Response.json(
+        { ok: false, error: error.code ?? "STORAGE_UNAVAILABLE_FAIL_CLOSED" },
+        { status: error.status ?? 503 }
+      );
     }
   }
 }
