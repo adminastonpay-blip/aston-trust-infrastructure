@@ -207,7 +207,9 @@ export class AgentIdentity {
       if (agent.budget_spent + agent.budget_reserved + modelCostMinor > Math.min(agent.budget_total, budget.amountMinor)) {
         throw new CoreError("BUDGET_EXCEEDED", "Policy budget exhausted", 403);
       }
-      this.sql.exec("DELETE FROM model_executions WHERE expires_at <= ?", now);
+      // Never auto-expire a lease into available capacity: an in-flight provider call
+      // may outlive its local deadline. A stale lease blocks new execution until
+      // an operator reconciles the uncertain execution and explicitly clears it.
       const active = this.sql.exec("SELECT COUNT(*) AS count FROM model_executions").toArray()[0].count;
       const maxConcurrent = limits.maxConcurrentExecutions ?? 1;
       if (!Number.isSafeInteger(maxConcurrent) || maxConcurrent < 1 || active >= maxConcurrent) {
