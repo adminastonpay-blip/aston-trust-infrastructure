@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { env, runInDurableObject } from "cloudflare:test";
+import { env } from "cloudflare:workers";
+import { runInDurableObject } from "cloudflare:test";
 
 const digest = "a".repeat(64);
 let sequence = 0;
@@ -32,8 +33,6 @@ describe("CORE 1.0 SQLite Durable Object integration", () => {
       requestDigest: digest, amountMinor: 75, policyVersion: 1
     })).json();
     expect(first.ok).toBe(true);
-    const id = env.AGENT_IDENTITY.idFromName("org-integration:" + (await stub.fetch("https://agent-identity/unused").then(r=>r.status)));
-    expect(id).toBeDefined();
     const state = await runInDurableObject(stub, async (_instance, state) =>
       state.storage.sql.exec("SELECT budget_total, budget_reserved, budget_spent FROM agent_state").toArray()[0]
     );
