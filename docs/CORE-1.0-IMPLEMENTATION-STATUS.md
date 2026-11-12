@@ -17,12 +17,12 @@
 - Vitest + `@cloudflare/vitest-plugin` runs locally on Miniflare/workerd. Wrangler config declares the SQLite-backed Durable Object classes and bindings.
 - Integration coverage includes local SQLite persistence, concurrent budget reservations, cross-tenant rejection, SQLite schema/storage failure fail-closed behavior, revocation-before-consume, Access JWT rejection cases, and mTLS rejection/revocation cases.
 - Staging-only `POST /v1/audit-target` accepts only the synthetic `PROMPT_INJ_01` fixture, requires an explicit enable flag and bearer secret, and returns a deny decision before any model adapter call.
-- `StagingInvocationLedger` is an independent SQLite-backed Durable Object keyed by correlation ID. `runInstrumentedModel()` increments it before calling `env.AI.run()`; the deny route reads it independently and requires zero.
+- `StagingInvocationLedger` is an independent SQLite-backed Durable Object keyed by correlation ID. `recordModelInvocation()` increments it immediately before the ModelRunner's sole `env.AI.run()` call; the deny fixture reads it independently and requires zero.
 - Miniflare integration tests cover the 403/zero-invocation denial path and a synthetic adapter canary (one adapter call/one ledger increment).
 
 ## Staging harness: strict interpretation
 
-The pre-existing CORE Worker had no `/v1/audit-target` route, model-execution endpoint, or production SafetyInterlock implementation. This addition is therefore a **test-only deterministic deny fixture**, not a proxy to an existing model service and not a semantic prompt-injection detector. It demonstrates that this fixture's deny branch executes before the instrumented adapter. The counter measures only model calls routed through `runInstrumentedModel()`; any direct `env.AI.run()` elsewhere would bypass it. Before hosted E2E, verify that the staging target has no such bypass.
+The pre-existing CORE Worker had no `/v1/audit-target` route, model-execution endpoint, or production SafetyInterlock implementation. This addition is therefore a **test-only deterministic deny fixture**, not a proxy to an existing model service and not a semantic prompt-injection detector. It demonstrates that this fixture's deny branch executes before the instrumented adapter. The counter measures model calls through the guarded ModelRunner while staging instrumentation is enabled. A static architecture test scans all `src/**/*.mjs` files and permits the direct binding call only in `src/core/model-runner.mjs`; dynamic code loading and Cloudflare platform-level calls remain outside this local source scan.
 
 The route is disabled unless `STAGING_HARNESS_ENABLED=true` and a non-empty `STAGING_HARNESS_TOKEN` secret is configured. Do not commit the token to Wrangler vars. Keep the route disabled outside the isolated staging test window and use a fresh correlation ID per test. No external model or production system is contacted by the denial fixture.
 
