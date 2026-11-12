@@ -1,0 +1,332 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aston.example/schemas/policy-authorization.schema.json",
+  "title": "ASTON CORE 1.0 Policy Authorization Grant",
+  "description": "A tenant-scoped, time-bounded grant that limits the actions an agent may request. The grant is not an authorization decision and must be evaluated online for every protected action.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "policyId",
+    "policyVersion",
+    "organizationId",
+    "subject",
+    "effect",
+    "actions",
+    "resources",
+    "constraints",
+    "issuedAt",
+    "notBefore",
+    "expiresAt",
+    "issuer",
+    "status"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "aston.policy-authorization/1.0"
+    },
+    "policyId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+    },
+    "policyVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "organizationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agentId"],
+      "properties": {
+        "agentId": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 512
+        },
+        "keyIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "description": "Optional key restriction. If omitted, only currently active keys bound to this agent may be used."
+        }
+      }
+    },
+    "effect": {
+      "const": "allow",
+      "description": "CORE 1.0 stores positive grants only. Deny rules and emergency blocks are evaluated separately and always override grants."
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*){1,5}$",
+        "description": "Namespaced action identifier, e.g. payments.create or inventory.read. Wildcard actions are not permitted in CORE 1.0."
+      }
+    },
+    "resources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "resourceId"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[a-z][a-z0-9._-]*$"
+          },
+          "resourceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "Exact resource identifier. No implicit global wildcard."
+          },
+          "attributes": {
+            "type": "object",
+            "maxProperties": 32,
+            "description": "Optional exact-match resource attributes. Policy evaluation semantics must be fixed by the implementation profile.",
+            "additionalProperties": {
+              "type": ["string", "number", "boolean"]
+            }
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxExecutionSeconds", "maxInvocations"],
+      "properties": {
+        "maxExecutionSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "maxInvocations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "maxConcurrentExecutions": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "budget": {
+          "$ref": "#/$defs/budget"
+        },
+        "humanApproval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "approverRole"],
+          "properties": {
+            "required": {
+              "type": "boolean"
+            },
+            "approverRole": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "approvalMaxAgeSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 604800
+            }
+          }
+        },
+        "network": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allowedHosts": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "format": "hostname"
+              }
+            },
+            "deniedHosts": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "format": "hostname"
+              }
+            }
+          }
+        },
+        "dataClassificationMax": {
+          "type": "string",
+          "enum": ["public", "internal", "confidential", "restricted"]
+        },
+        "customLimits": {
+          "type": "object",
+          "description": "Namespaced extension limits. They must not weaken mandatory CORE checks.",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9.-]*:[A-Za-z0-9._/-]+$"
+          },
+          "additionalProperties": {
+            "type": ["string", "integer", "number", "boolean"]
+          }
+        }
+      }
+    },
+    "issuedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notBefore": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "issuer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principalId", "keyId"],
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "keyId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "suspended", "revoked"]
+    },
+    "revocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revokedAt", "reasonCode", "eventId"],
+      "properties": {
+        "revokedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reasonCode": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 256
+        }
+      }
+    },
+    "approvalEvidenceRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "previousPolicyDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": {
+          "const": "sha-256"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9.-]*:[A-Za-z0-9._/-]+$"
+      },
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "revoked" }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "required": ["revocation"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "enum": ["active", "suspended"] }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "not": { "required": ["revocation"] }
+      }
+    }
+  ],
+  "$defs": {
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amountMinor", "currency", "period"],
+      "properties": {
+        "amountMinor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Maximum spend in integer minor currency units; never use floating-point amounts."
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO 4217 currency code."
+        },
+        "period": {
+          "type": "string",
+          "enum": ["per_execution", "hour", "day", "month", "grant_lifetime"]
+        },
+        "maxSingleOperationMinor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    }
+  }
+}
