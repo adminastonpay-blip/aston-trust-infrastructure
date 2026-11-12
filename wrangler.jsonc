@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "aston-core-1-0-local",
+  "main": "src/worker/index.mjs",
+  "compatibility_date": "2026-11-12",
+  "durable_objects": {
+    "bindings": [
+      { "name": "AGENT_IDENTITY", "class_name": "AgentIdentity" }
+    ]
+  },
+  "migrations": [
+    { "tag": "core-1.0-sqlite-v1", "new_sqlite_classes": ["AgentIdentity"] }
+  ],
+  "vars": {
+    "ACCESS_ADMIN_ROLE": "aston-admin"
+  },
+  "observability": { "enabled": false }
+}
