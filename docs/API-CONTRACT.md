@@ -466,20 +466,14 @@ Budget reservation, decision consumption, key/grant revocation, and agent status
 
 The API prefix `/v1` is a major compatibility boundary. Additive non-security fields MAY be introduced only if clients are required to ignore documented optional fields. Changes to authorization semantics, signature profiles, required fields, or error behavior require a versioned contract update and review. Schemas are versioned independently through their `schemaVersion` constants.
 
-## 13. Open decisions before implementation
+## 13. Decisions fixed by this contract and remaining implementation parameters
 
-These items MUST be resolved in review and are not silently selected by this draft:
-1. Production authentication issuer and key-management model for administrators and PEP services.
-2. Exact signed identity-passport serialization and issuer trust bootstrap.
-3. Exact detached/enveloped evidence signature serialization and evidence JSON Schema.
-4. Policy matching semantics for resource attributes and deny-rule precedence.
-5. Atomic budget reservation/settlement design and storage consistency guarantees.
-6. Authorization token format, storage, TTL, and atomic consume implementation.
-7. Revocation propagation SLA and cache invalidation mechanism.
-8. Evidence retention, deletion, encryption, and legal hold policy.
-9. Trusted timestamp authority and whether/when OpenTimestamps anchoring is added.
-10. Rate limits, payload size limits, and service SLOs.
+Fixed for CORE 1.0: Cloudflare Access JWT for human administrators; mTLS or private Service Binding for PEP services; agent key proof-of-possession independent of both; RFC 8785 JCS followed by SHA-256 for event digest; Ed25519 signature over the raw 32-byte digest; SQLite-backed per-agent Durable Object as the authoritative serialization/transaction boundary; deny on uncertain dependency or transaction state.
 
+Implementation parameters still requiring values before deployment: Access team issuer and audience; PEP certificate fingerprint/SAN allowlist and CA entitlement; Service Binding topology; Durable Object namespace/class and compatibility date; decision-token TTL and storage representation; revocation/deny propagation SLO; resource-attribute matching details; evidence retention/encryption/legal-hold policy; timestamp authority/OpenTimestamps integration; rate limits, payload limits, and service SLOs. These parameters do not weaken the security invariants above.
+
+The identity schema's issuer signature is distinct from the agent proof-of-possession challenge. Implementations MUST enforce that the public JWK algorithm, key metadata algorithm, and proof/signature algorithm agree. JSON Schema `format` annotations MUST be actively validated; implementations must also enforce temporal ordering (issuedAt < expiresAt, notBefore < expiresAt, validFrom < validUntil), which JSON Schema alone does not express.
+ 
 ## 14. Implementation gate
 
 No implementation should begin until the four CORE 1.0 deliverables are reviewed together and the open decisions above are resolved. Subsequent code must be built on an isolated branch, validated with schema tests, contract tests, outage tests, concurrency tests, replay tests, revocation tests, and independent verification tests. Deployment to production requires a separate explicit approval and is outside this contract.
