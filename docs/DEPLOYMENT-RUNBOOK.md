@@ -44,7 +44,7 @@ npm install --ignore-scripts --no-audit --no-fund --legacy-peer-deps
 npm test
 ```
 
-Expected test scripts are `test:core` and `test:integration`. A successful local run supplements, but does not replace, the matching GitHub Actions run. Save the command output and test counts.
+Expected test scripts are `test:core`, `test:architecture`, and `test:integration`. The architecture test scans every runtime `.mjs` file under `src/` and permits the direct Workers AI binding invocation only in `src/core/model-runner.mjs`. A successful local run supplements, but does not replace, the matching GitHub Actions run. Save the command output and test counts.
 
 Check the Cloudflare CLI before proceeding:
 
