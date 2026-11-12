@@ -5,14 +5,19 @@
   "description": "ASTON TRUST INFRASTRUCTURE — CORE 1.0 isolated reference implementation",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.mjs",
-    "test:core": "node --test tests/evidence.test.mjs tests/agent-identity.test.mjs"
+    "test": "npm run test:core && npm run test:integration",
+    "test:core": "node --test tests/evidence.test.mjs tests/agent-identity.test.mjs",
+    "test:integration": "vitest run"
   },
   "dependencies": {
     "canonicalize": "2.1.0"
   },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.7.0",
+    "vitest": "^4.1.0"
+  },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "license": "UNLICENSED"
 }
