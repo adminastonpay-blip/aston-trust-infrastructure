@@ -44,7 +44,7 @@ No Worker production code, Cloudflare account resources, production bindings/sec
 - The separately stored, immutable policy grant must match the immutable tenant, agent, policy ID/version, active allow effect, validity interval, exact `ai.inference` action and exact model resource. Missing or malformed grants fail closed.
 - Model execution requires an operator-configured positive integer `MODEL_INVOCATION_COST_MINOR`. This is a fixed internal budget debit per invocation, not actual provider billing. Only `grant_lifetime` policy budgets are supported; other budget periods fail closed.
 - `src/core/model-runner.mjs` contains the only direct `env.AI.run()` call in CORE source. A Node architecture test scans runtime modules for direct invocation bypasses.
-- The invocation debit remains charged if provider execution fails or its outcome is uncertain. Active execution leases are removed in a finally path and expire at the policy maximum execution duration if cleanup fails.
+- The invocation debit remains charged if provider execution fails or its outcome is uncertain. Active execution leases are removed in a finally path. If cleanup fails, the stale lease remains and blocks further model execution until an operator reconciles the uncertain execution; the system does not auto-free capacity merely because a timer elapsed.
 
 ### Explicit remaining gaps — not production complete
 
