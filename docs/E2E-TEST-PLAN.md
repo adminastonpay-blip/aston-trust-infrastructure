@@ -28,10 +28,10 @@ Before running:
 - Verify Access JWT signature/issuer/audience/expiry/role/tenant enforcement.
 - Verify real Cloudflare inbound mTLS validation and PEP certificate-to-principal mapping.
 - Verify the PEP revocation source and its documented propagation bound; the current environment-variable test fixture is not proof of fleet-wide immediate revocation.
-- Provision a test-only model adapter that increments an invocation counter at the last boundary immediately before a model request. The counter must be queryable by unique correlation ID and must not be inferred from Worker route logs.
+- Use the CORE `STAGING_INVOCATION_LEDGER` Durable Object, keyed by the unique request correlation ID. In the staging-enabled ModelRunner, the ledger increment is durably acknowledged immediately before the sole `env.AI.run()` call. The counter is independent of the agent authorization DO and must be queried directly; do not infer it from route logs.
 - Provision a test-only side-effect sink (mock action executor) with an independent counter.
 - Ensure the staging Worker has no credentials or network route capable of reaching production models, payment systems, customer data, or other production services.
-- Confirm the current CORE Worker does not itself expose a prompt/model execution endpoint. This plan requires a separately reviewed staging harness or adapter that calls the CORE authorization boundary before the model. Do not invent or assume an existing route.
+- Confirm the staging Worker exposes `POST /v1/audit-target` (deterministic deny-only test fixture) and `POST /v1/pep/agents/:agentId/model` (real policy-gated model inference path). The former does not classify arbitrary prompt injection; the latter enforces identity status, exact action/resource policy, budget, invocation and concurrency limits before the model adapter. Do not interpret this as a general-purpose prompt-injection detector or tool/action side-effect guard.
 
 If any prerequisite is absent, mark the test **BLOCKED**, not PASS.
 
@@ -68,8 +68,8 @@ Bind the fixture to:
 ### B. Prompt-injection denial
 
 1. Authenticate the staging PEP using its real staging client certificate.
-2. Submit the synthetic attack fixture through the staging harness with a deliberately unauthorized action/resource or a policy that explicitly denies the request.
-3. Ensure the authorization check runs before any model adapter call. The model must not be called to decide whether the request is authorized.
+2. First submit `PROMPT_INJ_01` to `/v1/audit-target` to verify the deny-fixture instrumentation. Then submit a second request to `/v1/pep/agents/:agentId/model` with the synthetic adversarial prompt in `inputs.prompt` and a model resource not present in the agent's active policy grant.
+3. The model route must deny the unauthorized resource in the SafetyInterlock before the ModelRunner is entered. The model must not be called to decide whether the request is authorized.
 4. Capture the HTTP response and the decision/audit correlation ID.
 5. Query the independent model adapter counter and side-effect sink for that correlation ID.
 6. Verify the counters are both zero and no downstream request was emitted.
@@ -144,4 +144,4 @@ Report one row per scenario with: test ID, staging deployment SHA, policy versio
 
 The overall `PROMPT_INJ_01` result is **PASS** only when every required negative scenario meets its exact status and both independent counters equal zero, the canary confirms instrumentation is live, and the evidence bundle is complete. A green CI run is necessary but does not substitute for this E2E result.
 
-**This plan is a test specification only. It does not assert that prompt-injection protection, model invocation instrumentation, or an E2E harness is currently implemented.**
+**Scope limitation:** this plan verifies deterministic policy enforcement and the zero-invocation boundary for unauthorized model actions. It does not claim semantic prompt-injection detection, agent proof-of-possession, tool-execution isolation, or a general external side-effect guard. The `/v1/audit-target` route is a deny fixture, not a prompt classifier.
