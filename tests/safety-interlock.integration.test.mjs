@@ -139,6 +139,11 @@ describe("CORE 1.0 SafetyInterlock and ModelRunner", () => {
     );
     expect(wrongModel.status).toBe(403);
     expect(calls).toBe(1);
+    const deniedLedger = env.STAGING_INVOCATION_LEDGER.get(env.STAGING_INVOCATION_LEDGER.idFromName(deniedId));
+    const deniedCount = await deniedLedger.fetch("https://staging-ledger/count", {
+      headers: { "x-correlation-id": deniedId }
+    });
+    expect((await deniedCount.json()).model_invocations).toBe(0);
 
     const revoked = await agent.fetch("https://agent-identity/revoke", {
       method: "POST",
