@@ -1,5 +1,6 @@
 import { verifyAccessAdministrator, verifyPepMtls, authFailure } from "./auth.mjs";
 import { handleAuditTarget, StagingInvocationLedger } from "../staging/harness.mjs";
+import { enforceAndRunModel } from "../core/safety-interlock.mjs";
 export { AgentIdentity } from "./agent-identity.mjs";
 export { StagingInvocationLedger };
 
@@ -18,7 +19,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/v1/audit-target") return handleAuditTarget(request, env);
     const adminMatch = url.pathname.match(/^\/v1\/admin\/agents\/([A-Za-z0-9._:-]+)\/revoke$/);
-    const pepMatch = url.pathname.match(/^\/v1\/pep\/agents\/([A-Za-z0-9._:-]+)\/(reserve|consume|settle)$/);
+    const pepMatch = url.pathname.match(/^\/v1\/pep\/agents\/([A-Za-z0-9._:-]+)\/(reserve|consume|settle|model)$/);
 
     if (adminMatch) {
       if (request.method !== "POST") return jsonError("METHOD_NOT_ALLOWED", 405);
@@ -47,6 +48,12 @@ export default {
       const action = pepMatch[2];
       if (auth.principal.permittedActions.length &&
           !auth.principal.permittedActions.includes(action)) return jsonError("PEP_ACTION_FORBIDDEN", 403);
+      if (action === "model") {
+        try {
+          const stub = agentStub(env, auth.principal.organizationId, pepMatch[1]);
+          return await enforceAndRunModel({ request, env, agentStub: stub, agentId: pepMatch[1], principal: auth.principal });
+        } catch { return jsonError("AUTHORITY_UNAVAILABLE", 503); }
+      }
       let body;
       try { body = await request.json(); } catch { return jsonError("INVALID_JSON", 400); }
       try {
