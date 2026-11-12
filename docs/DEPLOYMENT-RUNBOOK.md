@@ -15,7 +15,7 @@ Do not start a deployment until all of the following are true:
 - The account's plan and zone support the selected inbound mTLS architecture. If not, stop and design an approved private Service Binding or alternative ingress; do not silently disable mTLS.
 - A staging hostname is available and is not a production hostname.
 
-**Important implementation limits:** this repository is a reference implementation. The current Worker has administrative revoke and PEP reserve/consume/settle endpoints; it does not expose agent registration through the public Worker router, a production model-execution route, global tenant emergency deny, or a durable distributed PEP revocation service. The PEP revocation list currently comes from Worker runtime configuration and has not been proven to propagate instantaneously across a fleet. Do not represent those functions as production-ready.
+**Important implementation limits:** this repository is a reference implementation. The current Worker now includes Access-protected agent registration/revocation and an mTLS-protected model inference route through the SafetyInterlock and ModelRunner. The model route is still a reference implementation: agent proof-of-possession, identity/policy signature verification, global tenant emergency deny, human approval, non-lifetime budget periods, provider cost reconciliation, and durable distributed PEP revocation remain incomplete. Do not represent these functions as production-ready.
 
 ## 1. Confirm repository and branch
 
@@ -61,7 +61,8 @@ The checked-in `wrangler.jsonc` currently declares:
 
 - Worker entry point: `src/worker/index.mjs`.
 - Durable Object binding: `AGENT_IDENTITY` → class `AgentIdentity`.
-- SQLite-backed Durable Object migration: `core-1.0-sqlite-v1` with `new_sqlite_classes: ["AgentIdentity"]`.
+- Durable Object binding: `STAGING_INVOCATION_LEDGER` → class `StagingInvocationLedger`.
+- SQLite-backed migrations: `core-1.0-sqlite-v1` (`AgentIdentity`) and `core-1.0-staging-ledger-v2` (`StagingInvocationLedger`).
 - Default administrator role variable: `ACCESS_ADMIN_ROLE=aston-admin`.
 
 The file's Worker name is a local reference name. The staging deploy command below overrides it with `aston-core-1-0-staging`; do not edit the checked-in config to point at a production Worker.
@@ -85,7 +86,7 @@ npx wrangler secret put ACCESS_JWKS_URL --name aston-core-1-0-staging
 npx wrangler secret put ACCESS_TENANT_ID --name aston-core-1-0-staging
 ```
 
-Configure `PEP_CERT_ALLOWLIST` as a JSON array containing only the staging certificate fingerprint, exact RFC2253 issuer and subject, staging `servicePrincipalId`, staging `organizationId`, and least-privilege `permittedActions`. Configure `PEP_REVOKED_PRINCIPALS` as a JSON array (initially `[]`) through the approved staging secret/configuration process. These are configuration examples, not credentials:
+Configure `PEP_CERT_ALLOWLIST` as a JSON array containing only the staging certificate fingerprint, exact RFC2253 issuer and subject, staging `servicePrincipalId`, staging `organizationId`, and least-privilege `permittedActions` (include `model` only for the dedicated inference test principal). Configure `PEP_REVOKED_PRINCIPALS` as a JSON array (initially `[]`) through the approved staging secret/configuration process. These are configuration examples, not credentials:
 
 ```bash
 npx wrangler secret put PEP_CERT_ALLOWLIST --name aston-core-1-0-staging
@@ -95,6 +96,8 @@ npx wrangler secret put PEP_REVOKED_PRINCIPALS --name aston-core-1-0-staging
 Do not use test JWKS fixtures, local RSA keys, synthetic TLS metadata, production certificates, or broad wildcard allowlists. The current Worker code reads these settings from its runtime environment. Confirm how the selected Wrangler version exposes secrets as Worker bindings before deploying.
 
 The checked-in config sets `ACCESS_ADMIN_ROLE` to `aston-admin`. Keep that role narrow and enforce the same role in the Cloudflare Access application policy.
+
+Set `MODEL_INVOCATION_COST_MINOR` as a positive integer staging variable representing the fixed internal budget debit per model invocation; it is not actual provider billing. For the isolated E2E window only, set `STAGING_HARNESS_ENABLED=true` and configure `STAGING_HARNESS_TOKEN` as a staging secret. Keep the harness disabled outside that window. Model execution fails closed if the fixed debit is absent or invalid.
 
 ## 5. Configure staging ingress before exposing the Worker
 
@@ -130,8 +133,12 @@ Use only synthetic staging identities and certificates. Never use real customer 
 
 - `GET /healthz` returns the reference service health response. This endpoint does **not** prove that the DO, Access, mTLS, or authorization dependencies are healthy.
 - Administrative revoke without a valid Access JWT must return `401`; an authenticated principal without the required role must return `403`.
+- `POST /v1/admin/agents/:agentId/register` requires a valid Access administrator JWT and registers the identity plus policy grant in the agent DO; `POST /v1/admin/agents/:agentId/revoke` revokes it.
+- `POST /v1/pep/agents/:agentId/model` requires a verified mTLS PEP principal with explicit `permittedActions: ["model"]`, a registered active agent, an active matching policy grant, exact `ai.inference` action and exact model resource, available grant-lifetime budget, invocation quota, and concurrency capacity.
 - PEP requests without a client certificate must return `401`; invalid, expired, revoked, or unpinned certificates must return `403`.
 - A PEP with a revoked service principal must be denied before the Durable Object is called.
+- A model request with a policy-denied action/resource must return `403` and the independent staging invocation ledger must remain `0`.
+- A model request with an authorized policy must reach the single ModelRunner adapter; the independent staging ledger must record exactly `1` before `env.AI.run()`.
 - Cross-tenant attempts against a known staging DO must return `403` without changing its state.
 - Storage/runtime failure must deny with `503`; do not retry a protected action automatically.
 - Verify that no test path can reach a production model, payment, customer record, or external side effect.
