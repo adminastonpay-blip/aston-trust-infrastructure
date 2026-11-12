@@ -1,6 +1,6 @@
 # ASTON TRUST FABRIC CORE 1.0 — API Contract
 
-**Status:** Candidate contract — adversarial review incorporated; endpoints are not deployed  
+**Status:** APPROVED CONTRACT BASELINE — endpoints are not deployed  
 **Version:** 1.0.0-draft  
 **Base path:** `/v1`  
 **Transport:** HTTPS only; JSON request/response bodies  
@@ -476,4 +476,4 @@ The identity schema's issuer signature is distinct from the agent proof-of-posse
  
 ## 14. Implementation gate
 
-No implementation should begin until the four CORE 1.0 deliverables are reviewed together and the open decisions above are resolved. Subsequent code must be built on an isolated branch, validated with schema tests, contract tests, outage tests, concurrency tests, replay tests, revocation tests, and independent verification tests. Deployment to production requires a separate explicit approval and is outside this contract.
+The CORE 1.0 contract baseline is frozen on this branch. Implementation may begin only on a separate isolated implementation branch after a separate explicit implementation authorization. Code must be validated with JSON Schema meta-validation, positive/negative schema fixtures, contract tests, outage tests, concurrency/overspend tests, replay tests, revocation race tests, mTLS/JWT authentication tests, and independent cryptographic verification tests. Deployment to production requires separate explicit approval and is outside this contract.
