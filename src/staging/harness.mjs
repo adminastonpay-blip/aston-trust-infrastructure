@@ -69,7 +69,7 @@ export async function handleAuditTarget(request, env) {
   if (before !== 0) return json({ ok: false, error: "CORRELATION_ID_ALREADY_USED" }, 409);
 
   // Test-only SafetyInterlock decision: deterministic DENY, no model call.
-  const decision = { effect: "DENY", reason: "STAGING_PROMPT_INJECTION_DENY_FIXTURE" };
+  const decision = evaluateStagingSafetyInterlock(body.testId);
   let after;
   try { after = await readCount(env, correlationId); }
   catch { return json({ ok: false, error: "STAGING_LEDGER_UNAVAILABLE" }, 503); }
