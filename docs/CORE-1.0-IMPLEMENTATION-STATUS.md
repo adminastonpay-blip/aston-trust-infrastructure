@@ -41,16 +41,16 @@ No Worker production code, Cloudflare account resources, production bindings/sec
 ## Model execution boundary — implementation scope
 
 - `src/core/safety-interlock.mjs` authenticates the trusted PEP context supplied by the Worker and delegates an atomic policy/identity/budget/invocation/concurrency decision to the agent's SQLite Durable Object before model execution.
-- The agent's registered identity JSON must contain a `policyGrant` matching the immutable tenant, agent, policy ID/version, active allow effect, validity interval, exact `ai.inference` action and exact model resource. Missing or malformed grants fail closed.
+- The separately stored, immutable policy grant must match the immutable tenant, agent, policy ID/version, active allow effect, validity interval, exact `ai.inference` action and exact model resource. Missing or malformed grants fail closed.
 - Model execution requires an operator-configured positive integer `MODEL_INVOCATION_COST_MINOR`. This is a fixed internal budget debit per invocation, not actual provider billing. Only `grant_lifetime` policy budgets are supported; other budget periods fail closed.
 - `src/core/model-runner.mjs` contains the only direct `env.AI.run()` call in CORE source. A Node architecture test scans runtime modules for direct invocation bypasses.
 - The invocation debit remains charged if provider execution fails or its outcome is uncertain. Active execution leases are removed in a finally path and expire at the policy maximum execution duration if cleanup fails.
 
 ### Explicit remaining gaps — not production complete
 
-- Agent proof-of-possession and signed per-request agent authorization are not implemented. The current model endpoint authenticates the PEP service principal via mTLS and enforces registered tenant/agent state; it does not prove the autonomous agent signed the request.
+- Agent proof-of-possession and signed per-request agent authorization are not implemented; the synthetic identity fixture in tests does not represent a verified identity signature. The current model endpoint authenticates the PEP service principal via mTLS and enforces registered tenant/agent state; it does not prove the autonomous agent signed the request.
 - Human approval constraints, global/tenant emergency deny, non-lifetime budget periods, actual provider cost reconciliation, and cryptographically signed single-use decision tokens remain pending.
-- The existing Worker does not yet expose a complete administrator-facing registration/policy issuance workflow. A trusted provisioning path must register a validated and issuer-authenticated identity containing `policyGrant` before this model route can authorize anything.
+- A basic Cloudflare Access-protected administrator registration route now forwards an identity and policy grant to the per-agent DO. However, the route does not yet validate the identity's Ed25519 issuer proof, validate the complete JSON Schemas at runtime, or verify a policy issuer signature. Provisioning is therefore not yet suitable for untrusted or self-service registration.
 - Miniflare/CI does not prove hosted Cloudflare mTLS, Access, Workers AI binding, or provider behavior.
 
 This implementation must not be described as production-ready or fully CORE 1.0 compliant until the remaining contract requirements are closed and hosted staging E2E passes.
