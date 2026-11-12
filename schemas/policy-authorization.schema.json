@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aston.example/schemas/policy-authorization.schema.json",
+  "$id": "urn:aston:schema:policy-authorization:1.0",
   "title": "ASTON CORE 1.0 Policy Authorization Grant",
   "description": "A tenant-scoped, time-bounded, per-agent grant. Budget counters are enforced by the authoritative Durable Object for this agent. This grant is not an authorization decision and must be evaluated online for every protected action.",
   "type": "object",
