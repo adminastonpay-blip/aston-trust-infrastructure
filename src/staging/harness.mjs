@@ -26,18 +26,18 @@ async function readCount(env, correlationId) {
   return value.model_invocations;
 }
 
-/** Count durably immediately before every model call routed through this adapter. */
-export async function runInstrumentedModel(env, correlationId, model, inputs, options) {
+/** Independent durable invocation counter; deliberately does not call Workers AI. */
+export async function recordModelInvocation(env, correlationId) {
   if (!validCorrelationId(correlationId)) throw new Error("INVALID_CORRELATION_ID");
-  if (!env.AI || typeof env.AI.run !== "function") throw new Error("AI_BINDING_UNAVAILABLE");
-  const stub = env.STAGING_INVOCATION_LEDGER.get(env.STAGING_INVOCATION_LEDGER.idFromName(correlationId));
+  const stub = env.STAGING_INVOCATION_LEDGER?.get(env.STAGING_INVOCATION_LEDGER.idFromName(correlationId));
+  if (!stub) throw new Error("STAGING_LEDGER_UNAVAILABLE");
   const response = await stub.fetch("https://staging-ledger/increment", {
     method: "POST",
     headers: { "content-type": "application/json", "x-correlation-id": correlationId },
     body: JSON.stringify({ correlationId })
   });
-  if (!response.ok) throw new Error("LEDGER_UNAVAILABLE");
-  return env.AI.run(model, inputs, options);
+  if (!response.ok) throw new Error("STAGING_LEDGER_UNAVAILABLE");
+  return response.json();
 }
 
 /**
