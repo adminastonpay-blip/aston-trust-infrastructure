@@ -31,7 +31,10 @@
     "organization": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["organizationId", "displayName"],
+      "required": [
+        "organizationId",
+        "displayName"
+      ],
       "properties": {
         "organizationId": {
           "type": "string",
@@ -54,7 +57,11 @@
     },
     "status": {
       "type": "string",
-      "enum": ["active", "suspended", "revoked"]
+      "enum": [
+        "active",
+        "suspended",
+        "revoked"
+      ]
     },
     "publicKeys": {
       "type": "array",
@@ -95,7 +102,11 @@
     "revocation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["revokedAt", "reasonCode", "revocationEventId"],
+      "required": [
+        "revokedAt",
+        "reasonCode",
+        "revocationEventId"
+      ],
       "properties": {
         "revokedAt": {
           "type": "string",
@@ -115,7 +126,16 @@
     "proof": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "created", "verificationMethod", "canonicalization", "digestAlgorithm", "proofPurpose", "algorithm", "signature"],
+      "required": [
+        "type",
+        "created",
+        "verificationMethod",
+        "canonicalization",
+        "digestAlgorithm",
+        "proofPurpose",
+        "algorithm",
+        "signature"
+      ],
       "properties": {
         "type": {
           "const": "ASTON-JCS-Ed25519-v1"
@@ -134,18 +154,21 @@
           "const": "RFC8785"
         },
         "proofPurpose": {
-          "const": "assertionMethod"
+          "const": "identityIssuer"
         },
         "signature": {
           "type": "string",
-          "minLength": 16,
-          "maxLength": 4096,
+          "minLength": 86,
+          "maxLength": 86,
           "contentEncoding": "base64url",
-          "description": "Base64url Ed25519 signature over SHA-256(JCS(identity payload excluding proof)); base64url without padding."
+          "description": "Base64url Ed25519 signature over SHA-256(JCS(identity payload excluding proof)); base64url without padding.",
+          "pattern": "^[A-Za-z0-9_-]{86}$"
         },
         "algorithm": {
-          "type": "string",
-          "enum": ["EdDSA", "ES256"]
+          "const": "EdDSA"
+        },
+        "digestAlgorithm": {
+          "const": "SHA-256"
         }
       }
     },
@@ -162,23 +185,40 @@
     {
       "if": {
         "properties": {
-          "status": { "const": "revoked" }
+          "status": {
+            "const": "revoked"
+          }
         },
-        "required": ["status"]
+        "required": [
+          "status"
+        ]
       },
       "then": {
-        "required": ["revocation"]
+        "required": [
+          "revocation"
+        ]
       }
     },
     {
       "if": {
         "properties": {
-          "status": { "enum": ["active", "suspended"] }
+          "status": {
+            "enum": [
+              "active",
+              "suspended"
+            ]
+          }
         },
-        "required": ["status"]
+        "required": [
+          "status"
+        ]
       },
       "then": {
-        "not": { "required": ["revocation"] }
+        "not": {
+          "required": [
+            "revocation"
+          ]
+        }
       }
     }
   ],
@@ -186,7 +226,10 @@
     "digest": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["algorithm", "value"],
+      "required": [
+        "algorithm",
+        "value"
+      ],
       "properties": {
         "algorithm": {
           "const": "sha-256"
@@ -200,7 +243,13 @@
     "publicKey": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["keyId", "algorithm", "status", "publicJwk", "validFrom"],
+      "required": [
+        "keyId",
+        "algorithm",
+        "status",
+        "publicJwk",
+        "validFrom"
+      ],
       "properties": {
         "keyId": {
           "type": "string",
@@ -209,39 +258,69 @@
         },
         "algorithm": {
           "type": "string",
-          "enum": ["EdDSA", "ES256"]
+          "enum": [
+            "EdDSA",
+            "ES256"
+          ]
         },
         "status": {
           "type": "string",
-          "enum": ["active", "retired", "revoked"]
+          "enum": [
+            "active",
+            "retired",
+            "revoked"
+          ]
         },
         "publicJwk": {
           "oneOf": [
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["kty", "crv", "x"],
+              "required": [
+                "kty",
+                "crv",
+                "x"
+              ],
               "properties": {
-                "kty": { "const": "OKP" },
-                "crv": { "const": "Ed25519" },
+                "kty": {
+                  "const": "OKP"
+                },
+                "crv": {
+                  "const": "Ed25519"
+                },
                 "x": {
                   "type": "string",
                   "minLength": 43,
                   "maxLength": 43,
                   "contentEncoding": "base64url"
                 },
-                "use": { "const": "sig" },
-                "alg": { "const": "EdDSA" },
-                "kid": { "type": "string" }
+                "use": {
+                  "const": "sig"
+                },
+                "alg": {
+                  "const": "EdDSA"
+                },
+                "kid": {
+                  "type": "string"
+                }
               }
             },
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["kty", "crv", "x", "y"],
+              "required": [
+                "kty",
+                "crv",
+                "x",
+                "y"
+              ],
               "properties": {
-                "kty": { "const": "EC" },
-                "crv": { "const": "P-256" },
+                "kty": {
+                  "const": "EC"
+                },
+                "crv": {
+                  "const": "P-256"
+                },
                 "x": {
                   "type": "string",
                   "minLength": 43,
@@ -254,9 +333,15 @@
                   "maxLength": 43,
                   "contentEncoding": "base64url"
                 },
-                "use": { "const": "sig" },
-                "alg": { "const": "ES256" },
-                "kid": { "type": "string" }
+                "use": {
+                  "const": "sig"
+                },
+                "alg": {
+                  "const": "ES256"
+                },
+                "kid": {
+                  "type": "string"
+                }
               }
             }
           ]
@@ -278,12 +363,18 @@
         {
           "if": {
             "properties": {
-              "status": { "const": "revoked" }
+              "status": {
+                "const": "revoked"
+              }
             },
-            "required": ["status"]
+            "required": [
+              "status"
+            ]
           },
           "then": {
-            "required": ["revokedAt"]
+            "required": [
+              "revokedAt"
+            ]
           }
         }
       ]
