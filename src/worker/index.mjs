@@ -18,7 +18,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/v1/audit-target") return handleAuditTarget(request, env);
-    const adminMatch = url.pathname.match(/^\/v1\/admin\/agents\/([A-Za-z0-9._:-]+)\/revoke$/);
+    const adminMatch = url.pathname.match(/^\/v1\/admin\/agents\/([A-Za-z0-9._:-]+)\/(register|revoke)$/);
     const pepMatch = url.pathname.match(/^\/v1\/pep\/agents\/([A-Za-z0-9._:-]+)\/(reserve|consume|settle|model)$/);
 
     if (adminMatch) {
