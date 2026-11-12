@@ -110,7 +110,10 @@ export class AgentIdentity {
       if (decision.policy_version !== agent.policy_version) throw new CoreError("POLICY_VERSION_STALE", "Policy version changed", 403);
       if (decision.state !== "reserved") throw new CoreError("DECISION_ALREADY_CONSUMED", "Decision is not consumable", 409);
       this.sql.exec("UPDATE decisions SET state = 'consumed' WHERE decision_id = ?", decisionId);
-      this.sql.exec("UPDATE agent_state SET budget_reserved = budget_reserved - ?, state_seq = state_seq + 1 WHERE singleton = 1", decision.amount_minor);
+      // Move the reservation into the spent/encumbered bucket at consume time.
+      // This prevents another reservation from reusing funds while the external
+      // side effect is in flight or its outcome is unknown.
+      this.sql.exec("UPDATE agent_state SET budget_reserved = budget_reserved - ?, budget_spent = budget_spent + ?, state_seq = state_seq + 1 WHERE singleton = 1", decision.amount_minor, decision.amount_minor);
       return { decisionId, state: "consumed", amountMinor: decision.amount_minor };
     });
   }
@@ -120,7 +123,7 @@ export class AgentIdentity {
       const decision = this.sql.exec("SELECT * FROM decisions WHERE decision_id = ?", decisionId).toArray()[0];
       if (!decision || decision.state !== "consumed") throw new CoreError("INVALID_DECISION_STATE");
       this.sql.exec("UPDATE decisions SET state = 'settled' WHERE decision_id = ?", decisionId);
-      if (succeeded) this.sql.exec("UPDATE agent_state SET budget_spent = budget_spent + ?, state_seq = state_seq + 1 WHERE singleton = 1", decision.amount_minor);
+      if (!succeeded) this.sql.exec("UPDATE agent_state SET budget_spent = budget_spent - ?, state_seq = state_seq + 1 WHERE singleton = 1", decision.amount_minor);
       else this.sql.exec("UPDATE agent_state SET state_seq = state_seq + 1 WHERE singleton = 1");
       return { decisionId, state: "settled", chargedMinor: succeeded ? decision.amount_minor : 0 };
     });
