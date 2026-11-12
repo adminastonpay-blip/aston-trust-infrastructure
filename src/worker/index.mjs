@@ -1,5 +1,7 @@
 import { verifyAccessAdministrator, verifyPepMtls, authFailure } from "./auth.mjs";
+import { handleAuditTarget, StagingInvocationLedger } from "../staging/harness.mjs";
 export { AgentIdentity } from "./agent-identity.mjs";
+export { StagingInvocationLedger };
 
 function jsonError(code, status) {
   return Response.json({ ok: false, error: code }, { status });
@@ -14,6 +16,7 @@ function agentStub(env, organizationId, agentId) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/v1/audit-target") return handleAuditTarget(request, env);
     const adminMatch = url.pathname.match(/^\/v1\/admin\/agents\/([A-Za-z0-9._:-]+)\/revoke$/);
     const pepMatch = url.pathname.match(/^\/v1\/pep\/agents\/([A-Za-z0-9._:-]+)\/(reserve|consume|settle)$/);
 
