@@ -1,6 +1,6 @@
 # ASTON TRUST FABRIC CORE 1.0 — Technical Specification
 
-**Status:** Candidate contract — adversarial review incorporated; approval pending  
+**Status:** APPROVED CONTRACT BASELINE (specification only; implementation pending)  
 **Version:** 1.0.0-draft  
 **Scope:** Portable Agent Identity, Cryptographic Evidence, Fail-Closed Authorization  
 **Repository branch:** `docs/core-1.0-contracts`
@@ -109,7 +109,7 @@ The normative evidence object is defined by `schemas/evidence-event.schema.json`
 1. Build the `core` object using exactly the fields defined by the evidence schema, excluding `eventDigest`, `signature`, and optional `timestampReceiptRef`. The detached timestamp receipt reference is transport/storage metadata and is not hashed or signed.
 2. Canonicalize the complete `core` object using RFC 8785 JSON Canonicalization Scheme (JCS), UTF-8 encoded, with no byte-order mark and no trailing newline.
 3. Compute `eventDigest = SHA-256(JCS(core))`; encode the digest as 64 lowercase hexadecimal characters.
-4. If a payload is included in a future compatible profile, compute `payloadDigest = SHA-256(JCS(payload))` independently. CORE 1.0 stores payload content by reference or omission; the event schema carries its digest, not arbitrary raw payload bytes.
+4. Compute `payloadDigest = SHA-256(JCS(payloadValue))` independently for every event. If no payload is retained or supplied, `payloadValue` is JSON `null`; its JCS representation is the four UTF-8 bytes `null`. The event stores the digest, not arbitrary raw payload bytes.
 5. The signer signs the raw 32-byte `eventDigest` using Ed25519. The signature is base64url without padding. The signature object MUST declare `EdDSA` and the exact `keyId`.
 6. The final envelope is `core + eventDigest + signature`. Verifiers MUST recompute the digest from the received core and verify the signature over those 32 bytes. They MUST reject duplicate JSON member names before canonicalization, unsupported algorithms, malformed encodings, and unknown security-critical fields.
 
@@ -250,4 +250,4 @@ For incoming mTLS, the Worker must use the documented `request.cf.tlsClientAuth`
 
 ## 13. Status statement
 
-This document is a proposed technical contract. It does not assert that CORE 1.0 endpoints, schemas, runtime enforcement, or production fail-closed behavior are implemented. Existing repository modules are not silently reclassified as CORE 1.0 components by this specification.
+This document is the approved CORE 1.0 contract baseline for implementation planning only. It does not assert that CORE 1.0 endpoints, schemas, runtime enforcement, or production fail-closed behavior are implemented. Existing repository modules are not silently reclassified as CORE 1.0 components by this specification.
