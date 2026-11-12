@@ -1,54 +1,42 @@
-# LEGAL BRIEF — ASTON TRUST INFRASTRUCTURE
-**For:** U.S. patent counsel  
-**Matter:** Provisional application review and filing preparation  
-**Working title:** *Method and System for Cryptographic Attestation and Fail-Closed Enforcement of Autonomous Artificial Intelligence Agents*  
-**Status:** Attorney-review brief only. No application has been filed. This is not a patentability opinion.
+# ASTON — LEGAL BRIEF FOR U.S. PATENT COUNSEL
+**Matter:** Provisional patent review and filing preparation  
+**Proposed title:** *Method and System for Cryptographic Attestation and Fail-Closed Enforcement of Autonomous Artificial Intelligence Agents*  
+**Status:** Confidential working brief. No application has been filed. This is not a patentability opinion.
 
-## 1. What counsel is being asked to do
-Review `docs/PATENT_DRAFT.md` and the accompanying technical figures, identify the correct inventors and applicant, conduct a focused prior-art / patent-eligibility assessment, revise the disclosure and claims, and—if counsel concludes the record is adequate—prepare and file a U.S. provisional application. Please advise before filing if the written description or drawings do not adequately support an embodiment.
+## Requested engagement
+Review `docs/PATENT_DRAFT.md` and Figures 1–3; confirm inventorship, applicant and ownership; conduct a focused prior-art and eligibility assessment; identify disclosure gaps; revise the specification/claims; and, only if the record is adequate and the client authorizes it, prepare and file a U.S. provisional application.
 
-## 2. The technical contribution to evaluate
-The proposed invention is not “AI safety” in the abstract. It is a computer-implemented control and evidence workflow at the boundary of a consequential agent action:
+## Proposed technical contribution
+The invention is not AI safety in the abstract. It is a computer-implemented workflow at the boundary of a consequential agent action:
 
-1. **Action-boundary interlock:** receive a proposed agent action and execution context; evaluate scoped identity, policy version, risk/budget predicates, approvals and required evidence.
-2. **Fail-closed authorization:** issue a narrowly scoped, preferably single-use execution capability only if every mandatory predicate is affirmatively satisfied. A failed, missing, timed-out or indeterminate check denies or suspends execution and records a reason.
-3. **Cryptographically bound decision record:** create a canonical manifest binding the decision, agent/tenant, policy version, context and evidence digests; sign the defined bytes using an identified algorithm/key.
-4. **Independent verification:** a verifier checks manifest structure, digest consistency, signature, issuer-key trust/authorization and evidence state independently of the agent's own explanation or UI.
-5. **Optional external time anchoring:** submit a commitment to a timestamping service and distinguish pending from independently verified completion. A pending response is not represented as a completed Bitcoin anchor.
+1. **Action-boundary control:** receive an agent's proposed action, identity and execution context; evaluate scoped authority, policy version, risk/budget predicates, approvals and required evidence.
+2. **Fail-closed authorization:** issue a narrowly scoped execution capability only when every mandatory predicate affirmatively passes. A failed, missing, timed-out or indeterminate check denies/suspends execution and records a reason; it does not silently fail open.
+3. **Cryptographic decision record:** create a canonical manifest binding the decision, agent/tenant, policy version, context and evidence digests; sign the defined bytes using an identified algorithm and key.
+4. **Independent verification:** independently check manifest structure, digest integrity, signature, issuer-key trust/authorization and evidence state—without relying on the agent's own explanation or UI.
+5. **Optional external timestamp:** submit a commitment to a timestamp service and distinguish pending from independently verified completion. A pending response is not a completed Bitcoin anchor.
 
-**Potential technical effects to assess:** preventing fail-open tool execution; making post-decision evidence alteration detectable; separating authorization from later verification; and enabling portable third-party verification. These are proposed effects, not proven performance claims.
+Potential technical effects to assess: preventing unauthorized tool execution, making alteration of signed evidence detectable, separating authorization from later verification, and enabling portable third-party validation.
 
-## 3. Patentability and claim strategy — counsel's assessment required
-Please assess whether the *specific ordered combination and interfaces* are novel and non-obvious over agent guardrails, policy engines, signed audit logs, decision passports, trusted execution / key-management systems and timestamping services. The strongest potential claim focus is the coupling of (a) pre-execution, action-scoped fail-closed authorization, (b) a cryptographically bound decision/evidence manifest, and (c) independent verification with explicit pending/failed/verified states. Consider system, method and non-transitory computer-readable-medium claims, plus dependent claims for one-time capabilities, policy-version binding, key rotation/revocation, human escalation, privacy-preserving digests and optional external anchoring.
+## Patentability questions for counsel
+Is the *specific ordered combination and its interfaces* novel and non-obvious over agent guardrails, policy engines, signed audit logs, decision passports, key-management systems and timestamping services? Assess U.S. subject-matter eligibility, written-description/enablement support and claim scope. Consider method, system and non-transitory computer-readable-medium claims, with dependent claims for one-time capabilities, policy-version binding, key revocation/rotation, human escalation, privacy-preserving digests and optional external anchoring.
 
-Do not assume that combining known components is patentable. Identify the closest prior art, distinguish the actual implementation, and narrow or remove unsupported claim language. Confirm subject-matter eligibility and adequate written-description / enablement support under applicable U.S. law. The current draft is an invention disclosure, not a legal conclusion that the invention is patentable.
+The possible point of distinction is coupling pre-execution, action-scoped fail-closed authorization with a cryptographically bound decision/evidence manifest and independent verification with explicit pending/failed/verified states. **Do not assume this combination is patentable:** identify closest prior art, substantiate technical differences, and narrow or remove unsupported claims.
 
-## 4. Technical accuracy constraints
-The repository describes itself as an architectural specification/reference prototype. Its README explicitly says OpenTimestamps/Bitcoin anchoring is **not integrated** and full SNARK/STARK circuits are **not shipped**. Do not describe those as implemented. The present repository's `package.json` exposes `npm test` and `npm run check`; it does not configure a Cloudflare Worker or Miniflare. Obtain the actual SafetyInterlock Worker source, deployment configuration and test evidence before making implementation-specific assertions. Local tests are not Cloudflare production validation.
+## Accuracy limits to preserve
+The repository is an architectural specification/reference prototype. Its README states OpenTimestamps/Bitcoin anchoring is **not integrated** and full SNARK/STARK circuits are **not shipped**. Do not claim either is implemented. The repository's `package.json` exposes `npm test` and an informational `npm run check`; it has no Worker entry point or Miniflare configuration. Obtain the authoritative SafetyInterlock Worker source, immutable commit, deployment configuration and reproducible test output before making implementation claims.
 
-## 5. Documents and facts to attach
-- [ ] `docs/PATENT_DRAFT.md` — current technical disclosure.
-- [ ] Patent drawing sheets / figures 1–3 and their editable source, if available.
-- [ ] Source snapshot or commit SHA for each relied-upon module; identify prototype vs deployed code.
-- [ ] Test reports, exact commands, runtime versions, test output and known limitations.
-- [ ] Architecture and sequence diagrams showing the action boundary, deny path, manifest/signature and verifier.
-- [ ] Inventor names, residential addresses/countries as required by counsel, and a written contribution statement mapping each inventor to conception of claimed subject matter.
-- [ ] Applicant/assignee legal name, formation/jurisdiction documents, ownership chain, signed assignments or confirmatory assignments, and any employer/contractor agreements.
-- [ ] Earliest conception/reduction-to-practice dates; all public disclosures, demos, offers, sales, publications, repository visibility and dates; relevant NDAs.
-- [ ] Related U.S./foreign filings, priority claims, government funding or third-party obligations, if any.
-- [ ] Correspondence address and counsel's filing authorization.
+## Attach for counsel
+- [ ] `docs/PATENT_DRAFT.md` and Figures 1–3.
+- [ ] Source snapshot/commit SHA; module-to-claim mapping; architecture and sequence diagrams.
+- [ ] Test reports with commands, runtime versions, output and limitations.
+- [ ] Every inventor's legal name, residence and written contribution-to-conception statement.
+- [ ] Applicant/assignee legal name, formation records, ownership chain, signed assignments and relevant employment/contractor agreements.
+- [ ] Conception/reduction-to-practice timeline; all public disclosures, demos, sales/offers, repository visibility and dates; NDAs.
+- [ ] Related U.S./foreign filings, priority claims, government funding/third-party obligations, correspondence address and filing authorization.
 
-## 6. Filing gate — do not pay or submit until confirmed
-Confirm who is the applicant and where each applicant is domiciled. For patent matters received by the USPTO on or after **July 20, 2026**, applicants/owners domiciled outside the United States and its territories must be represented by a USPTO-registered patent practitioner. Counsel should confirm applicability to the actual applicant structure and current USPTO rules. Also determine whether any applicant qualifies for small- or micro-entity fees; do not claim reduced status without verifying every statutory requirement and signing the required certification.
+## Filing gate / five-minute intake
+First confirm applicant identity, ownership, inventor(s) and domicile. For USPTO patent matters received on or after **July 20, 2026**, applicants/owners domiciled outside the U.S. and its territories must be represented by a USPTO-registered patent practitioner; counsel must confirm application to the actual applicant structure. Verify any small-/micro-entity fee eligibility before certification or payment. Confirm current fee, cover sheet/ADS, inventors, drawings and the 12-month nonprovisional deadline. A provisional is not examined and does not itself become an issued patent; do not use “Patent Pending” until filing is confirmed.
 
-Counsel should confirm the current provisional filing fee, cover sheet / ADS details, inventor information, necessary drawings, signature/authorization, and the 12-month deadline for a corresponding nonprovisional application. A provisional is not examined and does not itself become an issued patent. Do not use “Patent Pending” until counsel confirms that a complete application has actually been filed.
+**Five-minute sequence:** (1) conflicts/client/applicant/domicile; (2) read this brief, draft and figures; (3) check ownership and disclosure timeline; (4) identify technical gaps and closest prior art; (5) agree scope, fee status, deadline and written filing authorization.
 
-## 7. Five-minute intake sequence
-1. Confirm client, applicant, inventor(s), domicile and conflicts.
-2. Open this brief, `docs/PATENT_DRAFT.md`, and figures 1–3.
-3. Review the disclosure/publication timeline and ownership documents.
-4. Identify missing technical support and run a focused prior-art / eligibility screen.
-5. Agree on claim scope, filing route, fee/entity status and filing deadline; file only after written client approval.
-
-**Primary technical source:** `docs/PATENT_DRAFT.md` in this repository.  
-**Official USPTO starting point:** https://www.uspto.gov/patents/basics/apply/provisional-application
+**USPTO reference:** https://www.uspto.gov/patents/basics/apply/provisional-application
