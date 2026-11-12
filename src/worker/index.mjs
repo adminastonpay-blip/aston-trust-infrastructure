@@ -1,4 +1,5 @@
 import { verifyAccessAdministrator, verifyPepMtls, authFailure } from "./auth.mjs";
+export { AgentIdentity } from "./agent-identity.mjs";
 
 function jsonError(code, status) {
   return Response.json({ ok: false, error: code }, { status });
