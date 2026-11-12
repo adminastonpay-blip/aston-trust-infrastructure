@@ -31,6 +31,13 @@ export default {
       if (!organizationId) return jsonError("ADMIN_TENANT_REQUIRED", 403);
       try {
         const stub = agentStub(env, organizationId, adminMatch[1]);
+        if (adminMatch[2] === "register") {
+          if (body.agentId !== adminMatch[1] || body.organizationId !== organizationId) return jsonError("REGISTRATION_SCOPE_MISMATCH", 403);
+          return await stub.fetch("https://agent-identity/register", {
+            method: "POST", headers: { "content-type": "application/json", "x-aston-tenant": organizationId },
+            body: JSON.stringify(body)
+          });
+        }
         return await stub.fetch("https://agent-identity/revoke", {
           method: "POST",
           headers: { "content-type": "application/json", "x-aston-tenant": organizationId },
@@ -46,7 +53,8 @@ export default {
       const auth = verifyPepMtls(request, env);
       if (!auth.ok) return authFailure(auth);
       const action = pepMatch[2];
-      if (auth.principal.permittedActions.length &&
+      if (action === "model" && !auth.principal.permittedActions.includes("model")) return jsonError("PEP_ACTION_FORBIDDEN", 403);
+      if (action !== "model" && auth.principal.permittedActions.length &&
           !auth.principal.permittedActions.includes(action)) return jsonError("PEP_ACTION_FORBIDDEN", 403);
       if (action === "model") {
         try {
