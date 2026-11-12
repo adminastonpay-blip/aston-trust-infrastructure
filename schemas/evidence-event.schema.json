@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:aston:schema:evidence-event:1.0",
   "title": "ASTON TRUST FABRIC CORE 1.0 Evidence Event",
-  "description": "Signed, append-only event. eventDigest is SHA-256(JCS(core)); Ed25519 signs the raw 32-byte eventDigest. The core excludes eventDigest, signature, and optional timestampReceiptRef.",
+  "description": "Signed, append-only event. eventDigest is SHA-256(JCS(core)); Ed25519 signs the raw 32-byte eventDigest. The core excludes eventDigest, signature, and optional timestampReceiptRef. payloadDigest is SHA-256(JCS(payloadValue)); payloadValue is JSON null when no payload is supplied.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -49,11 +49,18 @@
     "signer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["principalType", "principalId", "keyId"],
+      "required": [
+        "principalType",
+        "principalId",
+        "keyId"
+      ],
       "properties": {
         "principalType": {
           "type": "string",
-          "enum": ["agent", "pep"]
+          "enum": [
+            "agent",
+            "pep"
+          ]
         },
         "principalId": {
           "type": "string",
@@ -99,11 +106,19 @@
     "execution": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status"],
+      "required": [
+        "status"
+      ],
       "properties": {
         "status": {
           "type": "string",
-          "enum": ["not_started", "started", "succeeded", "failed", "unknown"]
+          "enum": [
+            "not_started",
+            "started",
+            "succeeded",
+            "failed",
+            "unknown"
+          ]
         },
         "startedAt": {
           "type": "string",
@@ -133,7 +148,10 @@
     "resource": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "resourceId"],
+      "required": [
+        "type",
+        "resourceId"
+      ],
       "properties": {
         "type": {
           "type": "string",
@@ -150,11 +168,17 @@
     "decision": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["outcome", "decidedAt"],
+      "required": [
+        "outcome",
+        "decidedAt"
+      ],
       "properties": {
         "outcome": {
           "type": "string",
-          "enum": ["ALLOW", "DENY"]
+          "enum": [
+            "ALLOW",
+            "DENY"
+          ]
         },
         "decidedAt": {
           "type": "string",
@@ -167,12 +191,17 @@
       }
     },
     "payloadDigest": {
-      "$ref": "#/$defs/digest"
+      "$ref": "#/$defs/digest",
+      "description": "SHA-256(JCS(payloadValue)); payloadValue is the canonical JSON payload or JSON null when no payload is supplied. Payload bytes are not embedded in this envelope."
     },
     "previousEventDigest": {
       "oneOf": [
-        { "type": "null" },
-        { "$ref": "#/$defs/digest" }
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/digest"
+        }
       ],
       "description": "Null only for the first event in a chain; otherwise the immediately preceding eventDigest."
     },
@@ -182,7 +211,13 @@
     "signature": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["algorithm", "keyId", "canonicalization", "digestAlgorithm", "value"],
+      "required": [
+        "algorithm",
+        "keyId",
+        "canonicalization",
+        "digestAlgorithm",
+        "value"
+      ],
       "properties": {
         "algorithm": {
           "const": "EdDSA"
@@ -225,7 +260,10 @@
     "digest": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["algorithm", "value"],
+      "required": [
+        "algorithm",
+        "value"
+      ],
       "properties": {
         "algorithm": {
           "const": "SHA-256"
