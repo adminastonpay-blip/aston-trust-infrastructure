@@ -5,9 +5,10 @@
   "description": "ASTON TRUST INFRASTRUCTURE — CORE 1.0 isolated reference implementation",
   "type": "module",
   "scripts": {
-    "test": "npm run test:core && npm run test:integration",
+    "test": "npm run test:core && npm run test:architecture && npm run test:integration",
     "test:core": "node --test tests/evidence.test.mjs tests/agent-identity.test.mjs",
-    "test:integration": "vitest run"
+    "test:integration": "vitest run",
+    "test:architecture": "node --test tests/model-runner-architecture.test.mjs"
   },
   "dependencies": {
     "canonicalize": "2.1.0"
