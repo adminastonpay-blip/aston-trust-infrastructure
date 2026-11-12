@@ -102,7 +102,7 @@ Error messages MUST NOT reveal cross-tenant object existence, secrets, internal 
 | POST | `/v1/policies/{policyId}/revoke` | Revoke grant | Org admin (Access JWT) |
 | POST | `/v1/authorize` | Evaluate a protected action | PEP service |
 | POST | `/v1/authorization/consume` | Atomically consume allow decision | PEP service |
-| POST | `/v1/evidence/submit` | Append signed evidence event | Authenticated PEP (mTLS/Service Binding) or agent via approved ingress |
+| POST | `/v1/evidence/submit` | Append signed evidence event | Authenticated PEP (mTLS/Service Binding); PEP may relay agent-signed evidence |
 | POST | `/v1/evidence/verify` | Independently verify evidence package | Verifier |
 | GET | `/v1/evidence/{eventId}` | Retrieve authorized evidence | Authorized reader |
 | GET | `/v1/status` | Dependency/readiness status | Operator / monitor |
@@ -320,22 +320,46 @@ Appends an evidence event. The submitted envelope MUST be signed by an active ag
   "eventId": "evt_01J...",
   "organizationId": "org_example",
   "agentId": "urn:uuid:00000000-0000-4000-8000-000000000001",
-  "keyId": "agent-key-01",
+  "signer": {
+    "principalType": "agent",
+    "principalId": "urn:uuid:00000000-0000-4000-8000-000000000001",
+    "keyId": "agent-key-01"
+  },
   "decisionId": "dec_01J...",
   "policyId": "pol_procurement_01",
   "policyVersion": 1,
   "requestId": "req_action_01J...",
   "eventType": "action.completed",
   "occurredAt": "2026-11-12T12:00:05Z",
+  "action": "procurement.purchase",
+  "resource": {
+    "type": "purchase_order",
+    "resourceId": "po_12345"
+  },
+  "decision": {
+    "outcome": "ALLOW",
+    "decidedAt": "2026-11-12T12:00:00Z"
+  },
+  "execution": {
+    "status": "succeeded",
+    "startedAt": "2026-11-12T12:00:01Z",
+    "completedAt": "2026-11-12T12:00:05Z"
+  },
   "payloadDigest": {
-    "algorithm": "sha-256",
-    "value": "64_HEX_CHARACTERS"
+    "algorithm": "SHA-256",
+    "value": "64_LOWERCASE_HEX_CHARACTERS"
   },
   "previousEventDigest": null,
+  "eventDigest": {
+    "algorithm": "SHA-256",
+    "value": "64_LOWERCASE_HEX_CHARACTERS"
+  },
   "signature": {
     "algorithm": "EdDSA",
+    "keyId": "agent-key-01",
     "canonicalization": "RFC8785",
-    "value": "BASE64URL_SIGNATURE"
+    "digestAlgorithm": "SHA-256",
+    "value": "BASE64URL_SIGNATURE_NO_PADDING"
   }
 }
 ```
