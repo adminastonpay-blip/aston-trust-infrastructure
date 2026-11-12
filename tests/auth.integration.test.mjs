@@ -1,15 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { webcrypto } from "node:crypto";
+import { describe, it, expect } from "vitest";
 import worker from "../src/worker/index.mjs";
 
 const now = Date.now();
 const issuer = "https://aston.cloudflareaccess.com";
 const audience = "aston-core-admin-app";
-const keyPair = await webcrypto.subtle.generateKey({
+const keyPair = await crypto.subtle.generateKey({
   name: "RSASSA-PKCS1-v1_5", modulusLength: 2048,
   publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256"
 }, true, ["sign", "verify"]);
-const publicJwk = await webcrypto.subtle.exportKey("jwk", keyPair.publicKey);
+const publicJwk = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
 publicJwk.kid = "test-access-key";
 publicJwk.use = "sig";
 publicJwk.alg = "RS256";
@@ -29,7 +28,7 @@ async function token(overrides = {}) {
   };
   const payload = b64url(new TextEncoder().encode(JSON.stringify(claims)));
   const signingInput = header + "." + payload;
-  const signature = await webcrypto.subtle.sign("RSASSA-PKCS1-v1_5", keyPair.privateKey, new TextEncoder().encode(signingInput));
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", keyPair.privateKey, new TextEncoder().encode(signingInput));
   return signingInput + "." + b64url(signature);
 }
 const env = {
