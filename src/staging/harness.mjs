@@ -29,8 +29,9 @@ async function readCount(env, correlationId) {
 /** Independent durable invocation counter; deliberately does not call Workers AI. */
 export async function recordModelInvocation(env, correlationId) {
   if (!validCorrelationId(correlationId)) throw new Error("INVALID_CORRELATION_ID");
-  const stub = env.STAGING_INVOCATION_LEDGER?.get(env.STAGING_INVOCATION_LEDGER.idFromName(correlationId));
-  if (!stub) throw new Error("STAGING_LEDGER_UNAVAILABLE");
+  const binding = env.STAGING_INVOCATION_LEDGER;
+  if (!binding) throw new Error("STAGING_LEDGER_UNAVAILABLE");
+  const stub = binding.get(binding.idFromName(correlationId));
   const response = await stub.fetch("https://staging-ledger/increment", {
     method: "POST",
     headers: { "content-type": "application/json", "x-correlation-id": correlationId },
@@ -38,6 +39,12 @@ export async function recordModelInvocation(env, correlationId) {
   });
   if (!response.ok) throw new Error("STAGING_LEDGER_UNAVAILABLE");
   return response.json();
+}
+
+/** Deterministic deny-only policy fixture; it does not classify arbitrary prompts. */
+export function evaluateStagingSafetyInterlock(testId) {
+  if (testId === "PROMPT_INJ_01") return { effect: "DENY", reason: "STAGING_PROMPT_INJECTION_DENY_FIXTURE" };
+  return { effect: "DENY", reason: "STAGING_TEST_CASE_NOT_ALLOWLISTED" };
 }
 
 /**
