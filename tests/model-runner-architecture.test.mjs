@@ -1,9 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
+
+async function collect(directory) {
+  const entries = await readdir(new URL("../" + directory, import.meta.url), { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...await collect(path));
+    else if (entry.name.endsWith(".mjs")) files.push(path);
+  }
+  return files;
+}
 
 test("env.AI.run is reachable only from the guarded Model Runner", async () => {
-  for (const path of ["src/worker/index.mjs", "src/worker/agent-identity.mjs", "src/core/safety-interlock.mjs", "src/staging/harness.mjs"]) {
+  const files = await collect("src");
+  for (const path of files.filter((value) => value !== "src/core/model-runner.mjs")) {
     const source = await readFile(new URL("../" + path, import.meta.url), "utf8");
     assert.equal(source.includes("env.AI.run("), false, path + " must not call Workers AI directly");
   }
