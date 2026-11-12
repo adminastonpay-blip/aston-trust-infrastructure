@@ -2,16 +2,14 @@ import { defineConfig } from "vitest/config";
 import { cloudflareTest } from "@cloudflare/vitest-plugin";
 
 export default defineConfig({
-  plugins: [cloudflareTest({
-    configPath: "./wrangler.jsonc",
-    persistState: false
-  })],
+  plugins: [
+    cloudflareTest({
+      wrangler: { configPath: "./wrangler.jsonc" }
+    })
+  ],
   test: {
     include: ["tests/**/*.integration.test.mjs"],
-    poolOptions: {
-      workers: {
-        singleWorker: true
-      }
-    }
+    testTimeout: 30_000,
+    hookTimeout: 30_000
   }
 });
