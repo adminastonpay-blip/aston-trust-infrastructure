@@ -18,6 +18,8 @@ class MemoryStorage {
     if (q.startsWith("UPDATE AGENT_STATE SET BUDGET_RESERVED = BUDGET_RESERVED +")) { this.agent.budget_reserved += args[0]; this.agent.state_seq++; return {toArray:()=>[]}; }
     if (q.startsWith("UPDATE AGENT_STATE SET BUDGET_RESERVED = BUDGET_RESERVED -")) { this.agent.budget_reserved -= args[0]; this.agent.state_seq++; return {toArray:()=>[]}; }
     if (q.startsWith("UPDATE AGENT_STATE SET BUDGET_SPENT = BUDGET_SPENT +")) { this.agent.budget_spent += args[0]; this.agent.state_seq++; return {toArray:()=>[]}; }
+    if (q.startsWith("UPDATE AGENT_STATE SET BUDGET_RESERVED = BUDGET_RESERVED -")) { this.agent.budget_reserved -= args[0]; this.agent.budget_spent += args[1]; this.agent.state_seq++; return {toArray:()=>[]}; }
+    if (q.startsWith("UPDATE AGENT_STATE SET BUDGET_SPENT = BUDGET_SPENT -")) { this.agent.budget_spent -= args[0]; this.agent.state_seq++; return {toArray:()=>[]}; }
     if (q.startsWith("UPDATE AGENT_STATE SET STATE_SEQ = STATE_SEQ +")) { this.agent.state_seq++; return {toArray:()=>[]}; }
     if (q.startsWith("UPDATE AGENT_STATE SET STATUS = 'REVOKED'")) { this.agent.status="revoked"; this.agent.state_seq++; return {toArray:()=>[]}; }
     if (q.startsWith("UPDATE DECISIONS SET STATE = 'CONSUMED'")) { this.decisions.get(args[0]).state="consumed"; return {toArray:()=>[]}; }
@@ -79,4 +81,23 @@ test("transaction rollback leaves state consistent after injected mid-transactio
   assert.equal(state.budgetReservedMinor,0);
   assert.equal(state.stateSeq,1);
   assert.equal(memory.decisions.size,0);
+});
+
+test("consumed budget stays encumbered until settlement and failed settlement releases it", async () => {
+  const {instance}=await setup();
+  await instance.reserveBudget({decisionId:"decision_hold",idempotencyKey:"idem_hold",requestDigest:digest,amountMinor:80,policyVersion:1});
+  await instance.consumeReservation({decisionId:"decision_hold",requestDigest:digest});
+  let state=await instance.getState();
+  assert.equal(state.budgetReservedMinor,0);
+  assert.equal(state.budgetSpentMinor,80);
+  await assert.rejects(()=>instance.reserveBudget({
+    decisionId:"decision_over",idempotencyKey:"idem_over",requestDigest:digest,amountMinor:30,policyVersion:1
+  }), (error)=>error.code==="BUDGET_EXCEEDED");
+  await instance.settleReservation({decisionId:"decision_hold",succeeded:false});
+  state=await instance.getState();
+  assert.equal(state.budgetSpentMinor,0);
+  const retry=await instance.reserveBudget({
+    decisionId:"decision_retry",idempotencyKey:"idem_retry",requestDigest:digest,amountMinor:100,policyVersion:1
+  });
+  assert.equal(retry.state,"reserved");
 });
