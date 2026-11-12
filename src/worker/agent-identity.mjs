@@ -44,6 +44,7 @@ export class AgentIdentity {
     this.sql.exec("CREATE TABLE IF NOT EXISTS model_execution_state (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), invocation_count INTEGER NOT NULL DEFAULT 0, budget_spent_minor INTEGER NOT NULL DEFAULT 0)");
     this.sql.exec("INSERT OR IGNORE INTO model_execution_state (singleton, invocation_count, budget_spent_minor) VALUES (1, 0, 0)");
     this.sql.exec("CREATE TABLE IF NOT EXISTS model_executions (request_id TEXT PRIMARY KEY, expires_at TEXT NOT NULL)");
+    this.sql.exec("CREATE TABLE IF NOT EXISTS model_request_history (request_id TEXT PRIMARY KEY, created_at TEXT NOT NULL)");
     this.sql.exec(`
       CREATE TABLE IF NOT EXISTS decisions (
         decision_id TEXT PRIMARY KEY,
@@ -162,8 +163,10 @@ export class AgentIdentity {
       let identity;
       try { identity = JSON.parse(agent.identity_json); } catch { throw new CoreError("IDENTITY_RECORD_INVALID", "Identity record is invalid", 503); }
       const nowMs = Date.parse(now);
+      const identityIssuedAt = Date.parse(identity.issuedAt || "");
       const identityExpiry = Date.parse(identity.expiresAt || "");
-      if (!Number.isFinite(nowMs) || !Number.isFinite(identityExpiry) || identityExpiry <= nowMs) {
+      if (identity.status !== "active" || !Number.isFinite(nowMs) || !Number.isFinite(identityIssuedAt) ||
+          identityIssuedAt > nowMs || !Number.isFinite(identityExpiry) || identityExpiry <= nowMs) {
         throw new CoreError("IDENTITY_EXPIRED_OR_INVALID", "Identity validity cannot be established", 403);
       }
       const policyRow = this.sql.exec("SELECT policy_json FROM agent_policy WHERE singleton = 1").toArray()[0];
@@ -190,7 +193,8 @@ export class AgentIdentity {
         throw new CoreError("POLICY_LIMITS_INVALID", "Required model limits missing", 403);
       }
       const budget = limits.budget;
-      if (!budget || budget.period !== "grant_lifetime" || !Number.isSafeInteger(budget.amountMinor) || budget.amountMinor < 0) {
+      if (limits.humanApproval?.required === true) throw new CoreError("HUMAN_APPROVAL_REQUIRED", "Human approval flow is not available for this execution path", 403);
+      if (!budget || budget.period !== "grant_lifetime" || budget.currency !== agent.currency || !Number.isSafeInteger(budget.amountMinor) || budget.amountMinor < 0) {
         throw new CoreError("POLICY_BUDGET_UNSUPPORTED", "Only grant_lifetime budgets are supported for model execution", 403);
       }
       if (budget.maxSingleOperationMinor !== undefined && modelCostMinor > budget.maxSingleOperationMinor) {
@@ -207,10 +211,11 @@ export class AgentIdentity {
       if (!Number.isSafeInteger(maxConcurrent) || maxConcurrent < 1 || active >= maxConcurrent) {
         throw new CoreError("MAX_CONCURRENCY_EXCEEDED", "Concurrency limit reached", 403);
       }
-      if (this.sql.exec("SELECT request_id FROM model_executions WHERE request_id = ?", requestId).toArray()[0]) {
+      if (this.sql.exec("SELECT request_id FROM model_request_history WHERE request_id = ?", requestId).toArray()[0]) {
         throw new CoreError("MODEL_REQUEST_REPLAY", "Request ID already used", 409);
       }
       const expiry = new Date(nowMs + limits.maxExecutionSeconds * 1000).toISOString();
+      this.sql.exec("INSERT INTO model_request_history (request_id, created_at) VALUES (?, ?)", requestId, now);
       this.sql.exec("INSERT INTO model_executions (request_id, expires_at) VALUES (?, ?)", requestId, expiry);
       this.sql.exec("UPDATE model_execution_state SET invocation_count = invocation_count + 1, budget_spent_minor = budget_spent_minor + ? WHERE singleton = 1", modelCostMinor);
       this.sql.exec("UPDATE agent_state SET budget_spent = budget_spent + ?, state_seq = state_seq + 1 WHERE singleton = 1", modelCostMinor);
