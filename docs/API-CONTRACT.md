@@ -1,6 +1,6 @@
 # ASTON TRUST FABRIC CORE 1.0 — API Contract
 
-**Status:** Proposed contract for review; endpoints are not deployed  
+**Status:** Candidate contract — adversarial review incorporated; endpoints are not deployed  
 **Version:** 1.0.0-draft  
 **Base path:** `/v1`  
 **Transport:** HTTPS only; JSON request/response bodies  
@@ -11,6 +11,18 @@ This document defines the HTTP interface to be implemented later. It is not evid
 ## 1. Contract-wide rules
 
 ### 1.1 Authentication and tenant context
+
+**Human administrators — Cloudflare Access JWT**
+
+Administrative routes MUST be behind a Cloudflare Access application. The Worker MUST validate the `Cf-Access-Jwt-Assertion` header's signature using the Access public signing keys, exact issuer/team domain, exact application audience (`aud`), `exp`, `nbf`, and required identity/role claims. Key retrieval and rotation must follow the Access signing-key lifecycle. Do not trust an unverified decoded JWT, the `CF_Authorization` cookie alone, or caller-supplied identity/tenant headers. Access authentication is necessary but not sufficient: the Worker must still authorize the administrator's role and tenant for the requested operation. If JWT validation or key refresh cannot be completed safely, reject the request.
+
+**PEP services — mTLS or private Service Binding**
+
+For public ingress, require mTLS on the API hostname. In the Worker, validate Cloudflare-provided `request.cf.tlsClientAuth` metadata: certificate presented, `certVerified === "SUCCESS"`, and `certRevoked === "0"`. Map the certificate to a provisioned service principal using a pinned certificate fingerprint and/or constrained SAN/issuer identity. A valid chain to the CA alone is not sufficient authorization. Never trust forwarded certificate headers or client-supplied principal headers.
+
+For Worker-to-Worker calls within the same Cloudflare account, a Service Binding MAY be used instead of public mTLS. The target Worker SHOULD have no public route. If it has public ingress, that path MUST enforce its own authentication. Service Binding authenticates the internal service hop, not the agent making the business request.
+
+Agent proof-of-possession (agent public key) remains required independently of PEP authentication. Cloudflare Access service tokens are not silently interchangeable with mTLS; CORE 1.0's selected PEP modes are mTLS or private Service Binding.
 
 - Every endpoint except the explicitly public-key verification operation MUST require authenticated service or administrator credentials.
 - The proposed baseline is short-lived OAuth 2.0 access tokens using asymmetric JWT signing, with issuer/audience validation and narrowly scoped roles. Mutual TLS MAY be added for service-to-service deployments.
@@ -79,18 +91,18 @@ Error messages MUST NOT reveal cross-tenant object existence, secrets, internal 
 
 | Method | Path | Purpose | Principal |
 |---|---|---|---|
-| POST | `/v1/identity/challenge` | Issue proof-of-possession challenge | Org admin / agent |
-| POST | `/v1/identity/register` | Register agent identity | Org admin |
-| GET | `/v1/identity/{agentId}` | Resolve identity snapshot | Authorized reader |
-| POST | `/v1/identity/{agentId}/keys/rotate` | Add/retire signing key | Org admin |
-| POST | `/v1/identity/{agentId}/suspend` | Suspend identity | Org admin |
-| POST | `/v1/identity/{agentId}/revoke` | Revoke identity | Org admin / emergency role |
-| POST | `/v1/policies/grants` | Create bounded policy grant | Org admin |
-| GET | `/v1/policies/{policyId}` | Resolve policy grant | Authorized reader |
-| POST | `/v1/policies/{policyId}/revoke` | Revoke grant | Org admin |
+| POST | `/v1/identity/challenge` | Issue proof-of-possession challenge | Org admin (Access JWT) |
+| POST | `/v1/identity/register` | Register agent identity | Org admin (Access JWT) |
+| GET | `/v1/identity/{agentId}` | Resolve identity snapshot | Access JWT or authenticated PEP (scope-limited) |
+| POST | `/v1/identity/{agentId}/keys/rotate` | Add/retire signing key | Org admin (Access JWT) |
+| POST | `/v1/identity/{agentId}/suspend` | Suspend identity | Org admin (Access JWT) |
+| POST | `/v1/identity/{agentId}/revoke` | Revoke identity | Org admin (Access JWT) / emergency role |
+| POST | `/v1/policies/grants` | Create bounded policy grant | Org admin (Access JWT) |
+| GET | `/v1/policies/{policyId}` | Resolve policy grant | Access JWT or authenticated PEP (scope-limited) |
+| POST | `/v1/policies/{policyId}/revoke` | Revoke grant | Org admin (Access JWT) |
 | POST | `/v1/authorize` | Evaluate a protected action | PEP service |
 | POST | `/v1/authorization/consume` | Atomically consume allow decision | PEP service |
-| POST | `/v1/evidence/submit` | Append signed evidence event | Agent / PEP |
+| POST | `/v1/evidence/submit` | Append signed evidence event | Authenticated PEP (mTLS/Service Binding) or agent via approved ingress |
 | POST | `/v1/evidence/verify` | Independently verify evidence package | Verifier |
 | GET | `/v1/evidence/{eventId}` | Retrieve authorized evidence | Authorized reader |
 | GET | `/v1/status` | Dependency/readiness status | Operator / monitor |
@@ -299,7 +311,7 @@ A successful consume response authorizes the PEP to attempt the bound action; it
 
 ### 6.1 `POST /v1/evidence/submit`
 
-Appends an evidence event. The submitted envelope MUST be signed by an active agent or PEP key and conform to the evidence profile in `docs/CORE-1.0-SPEC.md`. The exact envelope schema is a required follow-up before implementation; it is intentionally not invented in this deliverable.
+Appends an evidence event. The submitted envelope MUST be signed by an active agent or PEP key and conform to the evidence profile in `docs/CORE-1.0-SPEC.md`. The request MUST conform to `schemas/evidence-event.schema.json`. The schema defines the exact JCS/SHA-256/Ed25519 serialization profile.
 
 **Request shape**
 ```json
@@ -328,7 +340,7 @@ Appends an evidence event. The submitted envelope MUST be signed by an active ag
 }
 ```
 
-The server validates schema, signature, key status at signing time, tenant linkage, event uniqueness, and referenced decision/policy linkage. It appends rather than overwrites. Corrections require a new event referencing the prior event. The response returns event identifier, accepted timestamp, canonical digest, storage receipt, and append sequence. Acceptance does not assert the factual truth of the payload.
+The server validates schema, canonical JCS digest, Ed25519 signature over the raw 32-byte event digest, key status at signing time, tenant linkage, event uniqueness, and referenced decision/policy linkage. The event digest is SHA-256 over the JCS UTF-8 bytes of the event core excluding `eventDigest` and `signature`; no self-referential hashing is permitted. It appends rather than overwrites. Corrections require a new event referencing the prior event. The response returns event identifier, accepted timestamp, canonical digest, storage receipt, and append sequence. Acceptance does not assert the factual truth of the payload.
 
 ### 6.2 `POST /v1/evidence/verify`
 
@@ -435,7 +447,7 @@ A status endpoint cannot override these rules.
 
 Mutating endpoints require idempotency. Clients may retry only with the same idempotency key and identical body. Exponential backoff with jitter is recommended for retryable dependency errors, but retries MUST NOT bypass authorization or repeat side effects.
 
-Budget reservation and decision consumption MUST be atomic relative to the tenant/agent/policy budget. Concurrent requests must not overspend a shared budget. The implementation must define transaction boundaries and consistency guarantees before coding.
+Budget reservation, decision consumption, key/grant revocation, and agent status changes MUST be serialized through the same agent Durable Object. The DO MUST use SQLite-backed storage and an explicit transaction for the read-check-write transition. All writes require idempotency keys and monotonic state sequence numbers. Do not perform network I/O inside the transaction. Per-agent budget is authoritative; organization-wide budgets spanning multiple agents are out of scope for CORE 1.0. The DO is a deliberate per-agent throughput boundary. No exactly-once guarantee is made for external side effects: PEPs require downstream idempotency and reconciliation for unknown outcomes.
 
 ## 11. Security and privacy requirements
 
