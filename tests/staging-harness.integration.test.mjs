@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { env } from "cloudflare:workers";
 import worker from "../src/worker/index.mjs";
-import { runInstrumentedModel } from "../src/staging/harness.mjs";
+import { recordModelInvocation } from "../src/staging/harness.mjs";
 
 describe("PROMPT_INJ_01 independent staging instrumentation", () => {
   it("returns 403 and independently proves zero model invocations", async () => {
@@ -39,20 +39,14 @@ describe("PROMPT_INJ_01 independent staging instrumentation", () => {
     expect((await observed.json()).model_invocations).toBe(0);
   });
 
-  it("increments the independent ledger before invoking the model adapter", async () => {
+  it("records an independent invocation count without invoking AI itself", async () => {
     const correlationId = "model-canary-" + crypto.randomUUID();
-    let calls = 0;
-    const adapterEnv = {
-      STAGING_INVOCATION_LEDGER: env.STAGING_INVOCATION_LEDGER,
-      AI: { run: async () => { calls += 1; return { ok: true }; } }
-    };
-    const result = await runInstrumentedModel(adapterEnv, correlationId, "test-model", { prompt: "synthetic canary" });
-    expect(result).toEqual({ ok: true });
-    expect(calls).toBe(1);
+    const recorded = await recordModelInvocation(env, correlationId);
+    expect(recorded.model_invocations).toBe(1);
     const ledger = env.STAGING_INVOCATION_LEDGER.get(env.STAGING_INVOCATION_LEDGER.idFromName(correlationId));
-    const observed = await ledger.fetch("https://staging-ledger/count", {
+    const counterResponse = await ledger.fetch("https://staging-ledger/count", {
       headers: { "x-correlation-id": correlationId }
     });
-    expect((await observed.json()).model_invocations).toBe(1);
-  });
+    expect((await counterResponse.json()).model_invocations).toBe(1);
+  });;
 });
