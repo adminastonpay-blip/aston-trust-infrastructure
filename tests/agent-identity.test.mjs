@@ -11,6 +11,7 @@ class MemoryStorage {
     if (q.startsWith("CREATE TABLE")) return { toArray: () => [] };
     if (q.startsWith("SELECT * FROM AGENT_STATE")) return { toArray: () => this.agent ? [{ ...this.agent }] : [] };
     if (q.startsWith("SELECT AGENT_ID FROM AGENT_STATE")) return { toArray: () => this.agent ? [{ agent_id: this.agent.agent_id }] : [] };
+    if (q.startsWith("SELECT AGENT_ID, ORGANIZATION_ID FROM AGENT_STATE")) return { toArray: () => this.agent ? [{ agent_id: this.agent.agent_id, organization_id: this.agent.organization_id }] : [] };
     if (q.startsWith("SELECT * FROM DECISIONS WHERE IDEMPOTENCY_KEY")) return { toArray: () => [...this.decisions.values()].filter(x => x.idempotency_key === args[0]).map(x => ({...x})) };
     if (q.startsWith("SELECT * FROM DECISIONS WHERE DECISION_ID")) return { toArray: () => this.decisions.has(args[0]) ? [{...this.decisions.get(args[0])}] : [] };
     if (q.startsWith("INSERT INTO AGENT_STATE")) { this.agent = { organization_id:args[0], agent_id:args[1], identity_json:args[2], status:"active", policy_id:args[3], policy_version:args[4], currency:args[5], budget_total:args[6], budget_reserved:0, budget_spent:0, state_seq:1 }; return {toArray:()=>[]}; }
