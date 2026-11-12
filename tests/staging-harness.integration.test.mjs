@@ -48,5 +48,5 @@ describe("PROMPT_INJ_01 independent staging instrumentation", () => {
       headers: { "x-correlation-id": correlationId }
     });
     expect((await counterResponse.json()).model_invocations).toBe(1);
-  });;
+  });
 });
