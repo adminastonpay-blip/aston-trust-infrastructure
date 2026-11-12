@@ -106,7 +106,7 @@ Authorization MUST occur as close as practical to the protected action. The auth
 
 The normative evidence object is defined by `schemas/evidence-event.schema.json`. The envelope has a deliberately non-self-referential digest/signature construction:
 
-1. Build the `core` object using exactly the fields defined by the evidence schema, excluding `eventDigest` and `signature`.
+1. Build the `core` object using exactly the fields defined by the evidence schema, excluding `eventDigest`, `signature`, and optional `timestampReceiptRef`. The detached timestamp receipt reference is transport/storage metadata and is not hashed or signed.
 2. Canonicalize the complete `core` object using RFC 8785 JSON Canonicalization Scheme (JCS), UTF-8 encoded, with no byte-order mark and no trailing newline.
 3. Compute `eventDigest = SHA-256(JCS(core))`; encode the digest as 64 lowercase hexadecimal characters.
 4. If a payload is included in a future compatible profile, compute `payloadDigest = SHA-256(JCS(payload))` independently. CORE 1.0 stores payload content by reference or omission; the event schema carries its digest, not arbitrary raw payload bytes.
@@ -238,12 +238,7 @@ Implementation MUST add positive, negative, concurrency, replay, outage, stale-c
 - `schemas/policy-authorization.schema.json`
 - `docs/API-CONTRACT.md`
 
-## 12. Reserved
-
-This document is a proposed technical contract. It does not assert that CORE 1.0 endpoints, schemas, runtime enforcement, cryptographic verification, or production fail-closed behavior are implemented. Existing repository modules are not silently reclassified as CORE 1.0 components by this specification.
-
-
-## 12A. Cloudflare implementation constraints and documented limits
+## 12. Cloudflare implementation constraints and documented limits
 
 The implementation profile SHOULD use SQLite-backed Durable Objects, which Cloudflare recommends for new namespaces. Each agent object owns only that agent's mutable authorization state. A tenant-level/global emergency deny control is separate and must be consulted fail-closed; it cannot be represented as if all per-agent objects update atomically.
 
@@ -251,7 +246,7 @@ Cloudflare Durable Objects are single-threaded coordination primitives, but asyn
 
 The per-agent DO is a serialization and throughput boundary. It prevents concurrent spends against that agent's ledger when all relevant mutations route to the same object, but it does not provide atomicity across multiple agents, multiple DOs, external payment providers, or external action systems. Those cases require a separately specified distributed ledger/saga and reconciliation protocol.
 
-For incoming mTLS, the Worker must use the documented `request.cf.tlsClientAuth` properties and exact runtime values, not infer validity from arbitrary forwarded certificate headers. Cloudflare's BYOCA support for inbound client certificate validation is plan-dependent; if the account does not have the required entitlement, use Cloudflare-managed CA within its published limits or another explicitly reviewed ingress architecture. Service Bindings are internal Worker-to-Worker calls and require the target Worker to be deployed/configured in the same account; they do not authenticate end-user agents.
+For incoming mTLS, the Worker must use the documented `request.cf.tlsClientAuth` properties and exact runtime values, not infer validity from arbitrary forwarded certificate headers. Cloudflare's BYOCA support for inbound client certificate validation is plan-dependent (currently Enterprise); if the account does not have the required entitlement, use Cloudflare-managed CA within its published limits or another explicitly reviewed ingress architecture. Service Bindings are internal Worker-to-Worker calls and require the target Worker to be deployed/configured in the same account; they do not authenticate end-user agents.
 
 ## 13. Status statement
 
