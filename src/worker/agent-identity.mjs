@@ -40,6 +40,7 @@ export class AgentIdentity {
         state_seq INTEGER NOT NULL DEFAULT 1
       )
     `);
+    this.sql.exec("CREATE TABLE IF NOT EXISTS agent_policy (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), policy_json TEXT NOT NULL)");
     this.sql.exec("CREATE TABLE IF NOT EXISTS model_execution_state (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), invocation_count INTEGER NOT NULL DEFAULT 0, budget_spent_minor INTEGER NOT NULL DEFAULT 0)");
     this.sql.exec("INSERT OR IGNORE INTO model_execution_state (singleton, invocation_count, budget_spent_minor) VALUES (1, 0, 0)");
     this.sql.exec("CREATE TABLE IF NOT EXISTS model_executions (request_id TEXT PRIMARY KEY, expires_at TEXT NOT NULL)");
@@ -69,10 +70,16 @@ export class AgentIdentity {
     return row;
   }
 
-  async register({ organizationId, agentId, identity, policyId, policyVersion, currency, budgetTotalMinor }) {
+  async register({ organizationId, agentId, identity, policyId, policyVersion, currency, budgetTotalMinor, policyGrant }) {
     if (!organizationId || !agentId || !policyId || !Number.isSafeInteger(budgetTotalMinor) ||
         budgetTotalMinor < 0 || !/^[A-Z]{3}$/.test(currency ?? "")) {
       throw new CoreError("INVALID_REGISTRATION", "Invalid agent registration", 400);
+    }
+    if (policyGrant && (policyGrant.policyId !== policyId || policyGrant.policyVersion !== policyVersion ||
+        policyGrant.organizationId !== organizationId || policyGrant.subject?.agentId !== agentId ||
+        policyGrant.effect !== "allow" || policyGrant.status !== "active" ||
+        !Array.isArray(policyGrant.actions) || !Array.isArray(policyGrant.resources))) {
+      throw new CoreError("INVALID_POLICY_GRANT", "Policy grant does not match agent registration", 400);
     }
     return this.#transaction(() => {
       const existing = this.sql.exec("SELECT agent_id, organization_id FROM agent_state WHERE singleton = 1").toArray()[0];
@@ -83,6 +90,11 @@ export class AgentIdentity {
         "INSERT INTO agent_state (singleton, organization_id, agent_id, identity_json, status, policy_id, policy_version, currency, budget_total) VALUES (1, ?, ?, ?, 'active', ?, ?, ?, ?)",
         organizationId, agentId, JSON.stringify(identity), policyId, policyVersion, currency, budgetTotalMinor
       );
+      if (policyGrant) {
+        const priorPolicy = this.sql.exec("SELECT policy_json FROM agent_policy WHERE singleton = 1").toArray()[0];
+        if (priorPolicy && priorPolicy.policy_json !== JSON.stringify(policyGrant)) throw new CoreError("POLICY_GRANT_IMMUTABLE", "Policy replacement requires a new agent/policy version", 409);
+        this.sql.exec("INSERT OR IGNORE INTO agent_policy (singleton, policy_json) VALUES (1, ?)", JSON.stringify(policyGrant));
+      }
       return { status: "active", stateSeq: this.#agent().state_seq };
     });
   }
@@ -154,7 +166,9 @@ export class AgentIdentity {
       if (!Number.isFinite(nowMs) || !Number.isFinite(identityExpiry) || identityExpiry <= nowMs) {
         throw new CoreError("IDENTITY_EXPIRED_OR_INVALID", "Identity validity cannot be established", 403);
       }
-      const policy = identity.policyGrant;
+      const policyRow = this.sql.exec("SELECT policy_json FROM agent_policy WHERE singleton = 1").toArray()[0];
+      let policy;
+      try { policy = policyRow ? JSON.parse(policyRow.policy_json) : null; } catch { throw new CoreError("POLICY_GRANT_INVALID", "Stored policy grant is invalid", 503); }
       if (!policy || policy.organizationId !== agent.organization_id || policy.subject?.agentId !== agent.agent_id ||
           policy.policyId !== agent.policy_id || policy.policyVersion !== agent.policy_version) {
         throw new CoreError("POLICY_IDENTITY_MISMATCH", "No matching authoritative policy grant", 403);
@@ -184,7 +198,7 @@ export class AgentIdentity {
       }
       const usage = this.sql.exec("SELECT invocation_count, budget_spent_minor FROM model_execution_state WHERE singleton = 1").toArray()[0];
       if (usage.invocation_count >= limits.maxInvocations) throw new CoreError("MAX_INVOCATIONS_EXCEEDED", "Invocation limit reached", 403);
-      if (usage.budget_spent_minor + modelCostMinor > Math.min(agent.budget_total, budget.amountMinor)) {
+      if (agent.budget_spent + agent.budget_reserved + modelCostMinor > Math.min(agent.budget_total, budget.amountMinor)) {
         throw new CoreError("BUDGET_EXCEEDED", "Policy budget exhausted", 403);
       }
       this.sql.exec("DELETE FROM model_executions WHERE expires_at <= ?", now);
