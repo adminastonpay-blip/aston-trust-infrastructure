@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aston.example/schemas/evidence-event.schema.json",
+  "$id": "urn:aston:schema:evidence-event:1.0",
   "title": "ASTON TRUST FABRIC CORE 1.0 Evidence Event",
-  "description": "Signed, append-only event. eventDigest is SHA-256(JCS(core)); Ed25519 signs the raw 32-byte eventDigest. The core excludes eventDigest and signature.",
+  "description": "Signed, append-only event. eventDigest is SHA-256(JCS(core)); Ed25519 signs the raw 32-byte eventDigest. The core excludes eventDigest, signature, and optional timestampReceiptRef.",
   "type": "object",
   "additionalProperties": false,
   "required": [
