@@ -16,7 +16,6 @@ class MemoryStorage {
     if (q.startsWith("INSERT INTO AGENT_STATE")) { this.agent = { organization_id:args[0], agent_id:args[1], identity_json:args[2], status:"active", policy_id:args[3], policy_version:args[4], currency:args[5], budget_total:args[6], budget_reserved:0, budget_spent:0, state_seq:1 }; return {toArray:()=>[]}; }
     if (q.startsWith("INSERT INTO DECISIONS")) { const [decision_id,idempotency_key,request_digest,amount_minor,policy_version,created_at]=args; this.decisions.set(decision_id,{decision_id,idempotency_key,request_digest,amount_minor,state:"reserved",policy_version,created_at}); return {toArray:()=>[]}; }
     if (q.startsWith("UPDATE AGENT_STATE SET BUDGET_RESERVED = BUDGET_RESERVED +")) { this.agent.budget_reserved += args[0]; this.agent.state_seq++; return {toArray:()=>[]}; }
-    if (q.startsWith("UPDATE AGENT_STATE SET BUDGET_RESERVED = BUDGET_RESERVED -")) { this.agent.budget_reserved -= args[0]; this.agent.state_seq++; return {toArray:()=>[]}; }
     if (q.startsWith("UPDATE AGENT_STATE SET BUDGET_SPENT = BUDGET_SPENT +")) { this.agent.budget_spent += args[0]; this.agent.state_seq++; return {toArray:()=>[]}; }
     if (q.startsWith("UPDATE AGENT_STATE SET BUDGET_RESERVED = BUDGET_RESERVED -")) { this.agent.budget_reserved -= args[0]; this.agent.budget_spent += args[1]; this.agent.state_seq++; return {toArray:()=>[]}; }
     if (q.startsWith("UPDATE AGENT_STATE SET BUDGET_SPENT = BUDGET_SPENT -")) { this.agent.budget_spent -= args[0]; this.agent.state_seq++; return {toArray:()=>[]}; }
