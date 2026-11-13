@@ -95,7 +95,8 @@ describe("CORE 1.0 SafetyInterlock and ModelRunner", () => {
     const privatePermitKey = encodePermitKey(await crypto.subtle.exportKey("pkcs8", signingPair.privateKey));
     const publicPermitKey = encodePermitKey(await crypto.subtle.exportKey("spki", signingPair.publicKey));
     const consumedPermits = new Set();
-    const replayGuard = { idFromName: (id) => id, get: (id) => ({ fetch: async (request) => {
+    const replayGuard = { idFromName: (id) => id, get: (id) => ({ fetch: async (input, init) => {
+      const request = new Request(input, init);
       const value = await request.json();
       if (consumedPermits.has(value.tokenId)) return Response.json({ ok: false }, { status: 409 });
       consumedPermits.add(value.tokenId); return Response.json({ ok: true });
