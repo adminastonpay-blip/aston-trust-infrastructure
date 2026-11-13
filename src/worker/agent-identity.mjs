@@ -1,4 +1,5 @@
 import { CoreError } from "../core/errors.mjs";
+import { CloudflareSQLiteDatabase } from "../adapters/CloudflareSQLiteDatabase.mjs";
 
 /**
  * SQLite-backed, per-organization/per-agent Durable Object.
@@ -9,7 +10,7 @@ export class AgentIdentity {
   constructor(state, env) {
     this.state = state;
     this.env = env;
-    this.sql = state.storage.sql;
+    this.db = new CloudflareSQLiteDatabase(state.storage);
     this.storageHealthy = true;
     // Do not let a failed schema/storage initialization fall through to normal
     // request handling. The instance remains latched closed until it is replaced
@@ -24,7 +25,7 @@ export class AgentIdentity {
   }
 
   #initialize() {
-    this.sql.exec(`
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS agent_state (
         singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
         organization_id TEXT NOT NULL,
@@ -40,12 +41,12 @@ export class AgentIdentity {
         state_seq INTEGER NOT NULL DEFAULT 1
       )
     `);
-    this.sql.exec("CREATE TABLE IF NOT EXISTS agent_policy (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), policy_json TEXT NOT NULL)");
-    this.sql.exec("CREATE TABLE IF NOT EXISTS model_execution_state (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), invocation_count INTEGER NOT NULL DEFAULT 0, budget_spent_minor INTEGER NOT NULL DEFAULT 0)");
-    this.sql.exec("INSERT OR IGNORE INTO model_execution_state (singleton, invocation_count, budget_spent_minor) VALUES (1, 0, 0)");
-    this.sql.exec("CREATE TABLE IF NOT EXISTS model_executions (request_id TEXT PRIMARY KEY, expires_at TEXT NOT NULL)");
-    this.sql.exec("CREATE TABLE IF NOT EXISTS model_request_history (request_id TEXT PRIMARY KEY, created_at TEXT NOT NULL)");
-    this.sql.exec(`
+    this.db.exec("CREATE TABLE IF NOT EXISTS agent_policy (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), policy_json TEXT NOT NULL)");
+    this.db.exec("CREATE TABLE IF NOT EXISTS model_execution_state (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), invocation_count INTEGER NOT NULL DEFAULT 0, budget_spent_minor INTEGER NOT NULL DEFAULT 0)");
+    this.db.exec("INSERT OR IGNORE INTO model_execution_state (singleton, invocation_count, budget_spent_minor) VALUES (1, 0, 0)");
+    this.db.exec("CREATE TABLE IF NOT EXISTS model_executions (request_id TEXT PRIMARY KEY, expires_at TEXT NOT NULL)");
+    this.db.exec("CREATE TABLE IF NOT EXISTS model_request_history (request_id TEXT PRIMARY KEY, created_at TEXT NOT NULL)");
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS decisions (
         decision_id TEXT PRIMARY KEY,
         idempotency_key TEXT NOT NULL UNIQUE,
@@ -59,14 +60,11 @@ export class AgentIdentity {
   }
 
   #transaction(fn) {
-    if (typeof this.state.storage.transactionSync !== "function") {
-      throw new CoreError("TRANSACTION_API_UNAVAILABLE", "SQLite transactionSync is required", 503);
-    }
-    return this.state.storage.transactionSync(fn);
+    return this.db.transactionSync(fn);
   }
 
   #agent() {
-    const row = this.sql.exec("SELECT * FROM agent_state WHERE singleton = 1").toArray()[0];
+    const row = this.db.exec("SELECT * FROM agent_state WHERE singleton = 1").toArray()[0];
     if (!row) throw new CoreError("AGENT_NOT_REGISTERED", "Agent is not registered", 404);
     return row;
   }
@@ -85,18 +83,18 @@ export class AgentIdentity {
       throw new CoreError("INVALID_POLICY_GRANT", "Policy grant does not match agent registration", 400);
     }
     return this.#transaction(() => {
-      const existing = this.sql.exec("SELECT agent_id, organization_id FROM agent_state WHERE singleton = 1").toArray()[0];
+      const existing = this.db.exec("SELECT agent_id, organization_id FROM agent_state WHERE singleton = 1").toArray()[0];
       if (existing && (existing.agent_id !== agentId || existing.organization_id !== organizationId)) {
         throw new CoreError("IDENTITY_BINDING_CONFLICT", "DO is already bound to another identity", 409);
       }
-      if (!existing) this.sql.exec(
+      if (!existing) this.db.exec(
         "INSERT INTO agent_state (singleton, organization_id, agent_id, identity_json, status, policy_id, policy_version, currency, budget_total) VALUES (1, ?, ?, ?, 'active', ?, ?, ?, ?)",
         organizationId, agentId, JSON.stringify(identity), policyId, policyVersion, currency, budgetTotalMinor
       );
       if (policyGrant) {
-        const priorPolicy = this.sql.exec("SELECT policy_json FROM agent_policy WHERE singleton = 1").toArray()[0];
+        const priorPolicy = this.db.exec("SELECT policy_json FROM agent_policy WHERE singleton = 1").toArray()[0];
         if (priorPolicy && priorPolicy.policy_json !== JSON.stringify(policyGrant)) throw new CoreError("POLICY_GRANT_IMMUTABLE", "Policy replacement requires a new agent/policy version", 409);
-        this.sql.exec("INSERT OR IGNORE INTO agent_policy (singleton, policy_json) VALUES (1, ?)", JSON.stringify(policyGrant));
+        this.db.exec("INSERT OR IGNORE INTO agent_policy (singleton, policy_json) VALUES (1, ?)", JSON.stringify(policyGrant));
       }
       return { status: "active", stateSeq: this.#agent().state_seq };
     });
@@ -111,7 +109,7 @@ export class AgentIdentity {
       const agent = this.#agent();
       if (agent.status !== "active") throw new CoreError("IDENTITY_INACTIVE", "Agent is not active", 403);
       if (agent.policy_version !== policyVersion) throw new CoreError("POLICY_VERSION_STALE", "Policy version changed", 403);
-      const prior = this.sql.exec("SELECT * FROM decisions WHERE idempotency_key = ?", idempotencyKey).toArray()[0];
+      const prior = this.db.exec("SELECT * FROM decisions WHERE idempotency_key = ?", idempotencyKey).toArray()[0];
       if (prior) {
         if (prior.request_digest !== requestDigest || prior.amount_minor !== amountMinor) {
           throw new CoreError("IDEMPOTENCY_KEY_REUSED", "Idempotency key reused with different request", 409);
@@ -120,11 +118,11 @@ export class AgentIdentity {
       }
       const available = agent.budget_total - agent.budget_reserved - agent.budget_spent;
       if (amountMinor > available) throw new CoreError("BUDGET_EXCEEDED", "Insufficient available budget", 403);
-      this.sql.exec(
+      this.db.exec(
         "INSERT INTO decisions (decision_id, idempotency_key, request_digest, amount_minor, state, policy_version, created_at) VALUES (?, ?, ?, ?, 'reserved', ?, ?)",
         decisionId, idempotencyKey, requestDigest, amountMinor, policyVersion, now
       );
-      this.sql.exec("UPDATE agent_state SET budget_reserved = budget_reserved + ?, state_seq = state_seq + 1 WHERE singleton = 1", amountMinor);
+      this.db.exec("UPDATE agent_state SET budget_reserved = budget_reserved + ?, state_seq = state_seq + 1 WHERE singleton = 1", amountMinor);
       return { decisionId, state: "reserved", replay: false };
     });
   }
@@ -133,23 +131,23 @@ export class AgentIdentity {
     return this.#transaction(() => {
       const agent = this.#agent();
       if (agent.status !== "active") throw new CoreError("IDENTITY_INACTIVE", "Revoked/suspended identity blocks consume", 403);
-      const decision = this.sql.exec("SELECT * FROM decisions WHERE decision_id = ?", decisionId).toArray()[0];
+      const decision = this.db.exec("SELECT * FROM decisions WHERE decision_id = ?", decisionId).toArray()[0];
       if (!decision || decision.request_digest !== requestDigest) throw new CoreError("DECISION_CONTEXT_MISMATCH", "Decision not found or digest mismatch", 403);
       if (decision.policy_version !== agent.policy_version) throw new CoreError("POLICY_VERSION_STALE", "Policy version changed", 403);
       if (decision.state !== "reserved") throw new CoreError("DECISION_ALREADY_CONSUMED", "Decision is not consumable", 409);
-      this.sql.exec("UPDATE decisions SET state = 'consumed' WHERE decision_id = ?", decisionId);
-      this.sql.exec("UPDATE agent_state SET budget_reserved = budget_reserved - ?, budget_spent = budget_spent + ?, state_seq = state_seq + 1 WHERE singleton = 1", decision.amount_minor, decision.amount_minor);
+      this.db.exec("UPDATE decisions SET state = 'consumed' WHERE decision_id = ?", decisionId);
+      this.db.exec("UPDATE agent_state SET budget_reserved = budget_reserved - ?, budget_spent = budget_spent + ?, state_seq = state_seq + 1 WHERE singleton = 1", decision.amount_minor, decision.amount_minor);
       return { decisionId, state: "consumed", amountMinor: decision.amount_minor };
     });
   }
 
   async settleReservation({ decisionId, succeeded }) {
     return this.#transaction(() => {
-      const decision = this.sql.exec("SELECT * FROM decisions WHERE decision_id = ?", decisionId).toArray()[0];
+      const decision = this.db.exec("SELECT * FROM decisions WHERE decision_id = ?", decisionId).toArray()[0];
       if (!decision || decision.state !== "consumed") throw new CoreError("INVALID_DECISION_STATE");
-      this.sql.exec("UPDATE decisions SET state = 'settled' WHERE decision_id = ?", decisionId);
-      if (!succeeded) this.sql.exec("UPDATE agent_state SET budget_spent = budget_spent - ?, state_seq = state_seq + 1 WHERE singleton = 1", decision.amount_minor);
-      else this.sql.exec("UPDATE agent_state SET state_seq = state_seq + 1 WHERE singleton = 1");
+      this.db.exec("UPDATE decisions SET state = 'settled' WHERE decision_id = ?", decisionId);
+      if (!succeeded) this.db.exec("UPDATE agent_state SET budget_spent = budget_spent - ?, state_seq = state_seq + 1 WHERE singleton = 1", decision.amount_minor);
+      else this.db.exec("UPDATE agent_state SET state_seq = state_seq + 1 WHERE singleton = 1");
       return { decisionId, state: "settled", chargedMinor: succeeded ? decision.amount_minor : 0 };
     });
   }
@@ -171,7 +169,7 @@ export class AgentIdentity {
           identityIssuedAt > nowMs || !Number.isFinite(identityExpiry) || identityExpiry <= nowMs) {
         throw new CoreError("IDENTITY_EXPIRED_OR_INVALID", "Identity validity cannot be established", 403);
       }
-      const policyRow = this.sql.exec("SELECT policy_json FROM agent_policy WHERE singleton = 1").toArray()[0];
+      const policyRow = this.db.exec("SELECT policy_json FROM agent_policy WHERE singleton = 1").toArray()[0];
       let policy;
       try { policy = policyRow ? JSON.parse(policyRow.policy_json) : null; } catch { throw new CoreError("POLICY_GRANT_INVALID", "Stored policy grant is invalid", 503); }
       if (!policy || policy.organizationId !== agent.organization_id || policy.subject?.agentId !== agent.agent_id ||
@@ -202,7 +200,7 @@ export class AgentIdentity {
       if (budget.maxSingleOperationMinor !== undefined && modelCostMinor > budget.maxSingleOperationMinor) {
         throw new CoreError("SINGLE_OPERATION_BUDGET_EXCEEDED", "Model debit exceeds per-operation limit", 403);
       }
-      const usage = this.sql.exec("SELECT invocation_count, budget_spent_minor FROM model_execution_state WHERE singleton = 1").toArray()[0];
+      const usage = this.db.exec("SELECT invocation_count, budget_spent_minor FROM model_execution_state WHERE singleton = 1").toArray()[0];
       if (usage.invocation_count >= limits.maxInvocations) throw new CoreError("MAX_INVOCATIONS_EXCEEDED", "Invocation limit reached", 403);
       if (agent.budget_spent + agent.budget_reserved + modelCostMinor > Math.min(agent.budget_total, budget.amountMinor)) {
         throw new CoreError("BUDGET_EXCEEDED", "Policy budget exhausted", 403);
@@ -210,19 +208,19 @@ export class AgentIdentity {
       // Never auto-expire a lease into available capacity: an in-flight provider call
       // may outlive its local deadline. A stale lease blocks new execution until
       // an operator reconciles the uncertain execution and explicitly clears it.
-      const active = this.sql.exec("SELECT COUNT(*) AS count FROM model_executions").toArray()[0].count;
+      const active = this.db.exec("SELECT COUNT(*) AS count FROM model_executions").toArray()[0].count;
       const maxConcurrent = limits.maxConcurrentExecutions ?? 1;
       if (!Number.isSafeInteger(maxConcurrent) || maxConcurrent < 1 || active >= maxConcurrent) {
         throw new CoreError("MAX_CONCURRENCY_EXCEEDED", "Concurrency limit reached", 403);
       }
-      if (this.sql.exec("SELECT request_id FROM model_request_history WHERE request_id = ?", requestId).toArray()[0]) {
+      if (this.db.exec("SELECT request_id FROM model_request_history WHERE request_id = ?", requestId).toArray()[0]) {
         throw new CoreError("MODEL_REQUEST_REPLAY", "Request ID already used", 409);
       }
       const expiry = new Date(nowMs + limits.maxExecutionSeconds * 1000).toISOString();
-      this.sql.exec("INSERT INTO model_request_history (request_id, created_at) VALUES (?, ?)", requestId, now);
-      this.sql.exec("INSERT INTO model_executions (request_id, expires_at) VALUES (?, ?)", requestId, expiry);
-      this.sql.exec("UPDATE model_execution_state SET invocation_count = invocation_count + 1, budget_spent_minor = budget_spent_minor + ? WHERE singleton = 1", modelCostMinor);
-      this.sql.exec("UPDATE agent_state SET budget_spent = budget_spent + ?, state_seq = state_seq + 1 WHERE singleton = 1", modelCostMinor);
+      this.db.exec("INSERT INTO model_request_history (request_id, created_at) VALUES (?, ?)", requestId, now);
+      this.db.exec("INSERT INTO model_executions (request_id, expires_at) VALUES (?, ?)", requestId, expiry);
+      this.db.exec("UPDATE model_execution_state SET invocation_count = invocation_count + 1, budget_spent_minor = budget_spent_minor + ? WHERE singleton = 1", modelCostMinor);
+      this.db.exec("UPDATE agent_state SET budget_spent = budget_spent + ?, state_seq = state_seq + 1 WHERE singleton = 1", modelCostMinor);
       return { decision: "ALLOW", requestId, action, resourceId, organizationId: agent.organization_id,
         policyId: policy.policyId, policyVersion: policy.policyVersion, maxExecutionSeconds: limits.maxExecutionSeconds,
         budgetChargeMinor: modelCostMinor };
@@ -232,9 +230,9 @@ export class AgentIdentity {
   async finishModelExecution({ requestId }) {
     if (!/^[A-Za-z0-9._:-]{8,128}$/.test(requestId ?? "")) throw new CoreError("INVALID_MODEL_REQUEST_ID", "Invalid request ID", 400);
     return this.#transaction(() => {
-      const row = this.sql.exec("SELECT request_id FROM model_executions WHERE request_id = ?", requestId).toArray()[0];
+      const row = this.db.exec("SELECT request_id FROM model_executions WHERE request_id = ?", requestId).toArray()[0];
       if (!row) return { finished: false, replay: true };
-      this.sql.exec("DELETE FROM model_executions WHERE request_id = ?", requestId);
+      this.db.exec("DELETE FROM model_executions WHERE request_id = ?", requestId);
       return { finished: true, replay: false };
     });
   }
@@ -243,7 +241,7 @@ export class AgentIdentity {
     return this.#transaction(() => {
       const agent = this.#agent();
       if (agent.status === "revoked") return { status: "revoked", stateSeq: agent.state_seq, replay: true };
-      this.sql.exec("UPDATE agent_state SET status = 'revoked', state_seq = state_seq + 1 WHERE singleton = 1");
+      this.db.exec("UPDATE agent_state SET status = 'revoked', state_seq = state_seq + 1 WHERE singleton = 1");
       return { status: "revoked", stateSeq: agent.state_seq + 1, replay: false };
     });
   }

@@ -1,0 +1,42 @@
+import {describe,it,expect} from "vitest";
+import {webcrypto} from "node:crypto";
+import {createPermitToken,verifyPermitToken,encodePermitKey} from "../../src/core/permit-token.mjs";
+import {buildMerkleTree,createMerkleProof,verifyMerkleProof} from "../../src/core/merkle-tree.ts";
+import {EvidenceBatcher} from "../../src/core/merkle-batcher.mjs";
+import {createViolationReport,verifyViolationReport} from "../../src/core/violation-report.ts";
+import {CloudflareSQLiteDatabase} from "../../src/adapters/CloudflareSQLiteDatabase.mjs";
+import {CloudflareAIProvider} from "../../src/adapters/CloudflareAIProvider.mjs";
+globalThis.crypto??=webcrypto;
+describe("CORE 1.0 security modules",()=>{
+ it("issues signed permits bound to exact inputs and rejects tampering/expiry",async()=>{
+  const pair=await crypto.subtle.generateKey({name:"Ed25519"},true,["sign","verify"]);
+  const priv=encodePermitKey(await crypto.subtle.exportKey("pkcs8",pair.privateKey)),pub=encodePermitKey(await crypto.subtle.exportKey("spki",pair.publicKey));
+  const authorization={decision:"ALLOW",action:"ai.inference",resourceId:"model-a",requestId:"request-0001",organizationId:"org-1",policyId:"p1",policyVersion:1};
+  const inputs={prompt:"approved"},token=await createPermitToken({authorization,agentId:"agent-1",model:"model-a",inputs,privateKey:priv,keyId:"test",now:1800000000000});
+  expect((await verifyPermitToken(token,pub,{keyId:"test",requestId:"request-0001",model:"model-a",inputs,organizationId:"org-1",agentId:"agent-1"},1800000001000))?.action).toBe("ai.inference");
+  expect(await verifyPermitToken(token,pub,{requestId:"request-0001",model:"model-a",inputs:{prompt:"tampered"}},1800000001000)).toBeNull();
+  expect(await verifyPermitToken(token,pub,{requestId:"request-0001",model:"model-a",inputs},1800000040000)).toBeNull();
+  await expect(createPermitToken({authorization:{...authorization,decision:"DENY"},agentId:"a",model:"model-a",inputs,privateKey:priv,keyId:"test"})).rejects.toThrow();
+ });
+ it("builds Merkle roots, verifies inclusion and retains a failed batch",async()=>{
+  const ds=["a","b","c"].map(x=>x.repeat(64)),tree=await buildMerkleTree(ds),proof=await createMerkleProof(ds,2);
+  expect(tree.root).toMatch(/^[a-f0-9]{64}$/);expect(await verifyMerkleProof(proof)).toBe(true);
+  expect(await verifyMerkleProof({...proof,root:"f".repeat(64)})).toBe(false);
+  const batcher=new EvidenceBatcher({maxBatchSize:2});batcher.add(ds[0]);batcher.add(ds[1]);
+  expect((await batcher.flush()).anchored).toBe(false);expect(batcher.size).toBe(2);
+  await expect(batcher.flush({anchor:async()=>{throw Error("anchor down");}})).rejects.toThrow();expect(batcher.size).toBe(2);
+  expect((await batcher.flush({anchor:async({root})=>({receipt:root})})).anchored).toBe(true);expect(batcher.size).toBe(0);
+ });
+ it("creates independently verifiable Ed25519 violation JSON",async()=>{
+  const pair=await crypto.subtle.generateKey({name:"Ed25519"},true,["sign","verify"]);
+  const report=await createViolationReport({violationType:"SAFETY_INTERLOCK_BYPASS_ATTEMPT",observedAt:"2026-11-13T12:00:00Z",
+   requestId:"req-violation-01",model:"model-a",actor:"unverified-caller",route:"/infer",details:{permitPresented:false}},pair.privateKey,"vk1");
+  expect(await verifyViolationReport(report,pair.publicKey)).toBe(true);
+  expect(await verifyViolationReport({...report,actor:"forged"},pair.publicKey)).toBe(false);
+ });
+ it("adapts SQLite and AI behind narrow ports",async()=>{
+  const calls=[];const db=new CloudflareSQLiteDatabase({sql:{exec:(...args)=>{calls.push(args);return{toArray:()=>[{ok:true}]};}},transactionSync:fn=>fn()});
+  expect(db.exec("SELECT ?",1).toArray()).toEqual([{ok:true}]);expect(db.transactionSync(()=>7)).toBe(7);expect(calls).toHaveLength(1);
+  expect(await new CloudflareAIProvider({run:async(model,inputs)=>({model,inputs})}).run("m",{prompt:"x"})).toEqual({model:"m",inputs:{prompt:"x"}});
+ });
+});

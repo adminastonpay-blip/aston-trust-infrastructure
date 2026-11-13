@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { env } from "cloudflare:workers";
 import worker from "../src/worker/index.mjs";
+import modelRunnerWorker from "../src/model-runner/worker.mjs";
+import { encodePermitKey } from "../src/core/permit-token.mjs";
 
 function certRequest(url, body, tlsClientAuth, requestId) {
   const request = new Request(url, {
@@ -88,8 +90,27 @@ describe("CORE 1.0 SafetyInterlock and ModelRunner", () => {
       certSubjectDNRFC2253: "CN=pep-model-test,O=ASTON",
       certNotAfter: new Date(now + 3_600_000).toUTCString()
     };
+
+    const signingPair = await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
+    const privatePermitKey = encodePermitKey(await crypto.subtle.exportKey("pkcs8", signingPair.privateKey));
+    const publicPermitKey = encodePermitKey(await crypto.subtle.exportKey("spki", signingPair.publicKey));
+    const consumedPermits = new Set();
+    const replayGuard = { idFromName: (id) => id, get: (id) => ({ fetch: async (request) => {
+      const value = await request.json();
+      if (consumedPermits.has(value.tokenId)) return Response.json({ ok: false }, { status: 409 });
+      consumedPermits.add(value.tokenId); return Response.json({ ok: true });
+    } }) };
+    let calls = 0;
+    const modelRunnerService = { fetch: (request) => modelRunnerWorker.fetch(request, {
+      AI: { run: async () => { calls += 1; return { generated: "synthetic integration result" }; } },
+      PERMIT_SIGNING_PUBLIC_KEY: publicPermitKey, PERMIT_SIGNING_KEY_ID: "test-permit-key",
+      PERMIT_REPLAY_GUARD: replayGuard
+    }, {}) };
     const runtimeEnv = {
       ...env,
+      MODEL_RUNNER: modelRunnerService,
+      PERMIT_SIGNING_PRIVATE_KEY: privatePermitKey,
+      PERMIT_SIGNING_KEY_ID: "test-permit-key",
       MODEL_INVOCATION_COST_MINOR: "1",
       STAGING_HARNESS_ENABLED: "true",
       PEP_CERT_ALLOWLIST: JSON.stringify([{
@@ -99,11 +120,8 @@ describe("CORE 1.0 SafetyInterlock and ModelRunner", () => {
         servicePrincipalId: "pep-model-test", organizationId,
         permittedActions: ["model"]
       }]),
-      PEP_REVOKED_PRINCIPALS: "[]",
-      AI: { run: async () => ({ generated: "synthetic integration result" }) }
+      PEP_REVOKED_PRINCIPALS: "[]"
     };
-    let calls = 0;
-    runtimeEnv.AI.run = async () => { calls += 1; return { generated: "synthetic integration result" }; };
 
     const firstId = "model-run-" + suffix;
     const first = await worker.fetch(

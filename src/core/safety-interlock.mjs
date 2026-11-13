@@ -27,5 +27,5 @@ export async function enforceAndRunModel({ request, env, agentStub, agentId, pri
     if (!response.ok || !result.ok || result.result?.decision !== "ALLOW") return deny(result.error || "SAFETY_INTERLOCK_DENIED", response.status || 403);
     authorization = result.result;
   } catch { return deny("AUTHORITY_UNAVAILABLE", 503); }
-  return runAuthorizedModel({ env, agentStub, authorization, model, inputs: body.inputs });
+  return runAuthorizedModel({ env, agentStub, authorization, agentId, model, inputs: body.inputs });
 }
