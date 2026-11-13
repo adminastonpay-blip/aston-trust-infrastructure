@@ -48,7 +48,7 @@ describe("CORE 1.0 security modules",()=>{
  });
  it("adapts SQLite and AI behind narrow ports",async()=>{
   const calls=[];const db=new CloudflareSQLiteDatabase({sql:{exec:(...args)=>{calls.push(args);return{toArray:()=>[{ok:true}]};}},transactionSync:fn=>fn()});
-  expect(db.exec("SELECT ?",1).toArray()).toEqual([{ok:true}]);expect(db.transactionSync(()=>7)).toBe(7);expect(calls).toHaveLength(1);
+  expect(db.exec("SELECT ?",1).toArray()).toEqual([{ok:true}]);expect(db.transaction(()=>7)).toBe(7);expect(calls).toHaveLength(1);
   expect(await new CloudflareAIProvider({run:async(model,inputs)=>({model,inputs})}).run("m",{prompt:"x"})).toEqual({model:"m",inputs:{prompt:"x"}});
  });
 });
