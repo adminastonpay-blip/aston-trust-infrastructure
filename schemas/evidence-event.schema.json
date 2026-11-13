@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:aston:schema:evidence-event:1.0",
+  "title": "ASTON TRUST FABRIC CORE 1.0 Evidence Event",
+  "description": "Signed, append-only event. eventDigest is SHA-256(JCS(core)); Ed25519 signs the raw 32-byte eventDigest. The core excludes eventDigest, signature, and optional timestampReceiptRef. payloadDigest is SHA-256(JCS(payloadValue)); payloadValue is JSON null when no payload is supplied.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "organizationId",
+    "agentId",
+    "signer",
+    "decisionId",
+    "policyId",
+    "policyVersion",
+    "requestId",
+    "eventType",
+    "occurredAt",
+    "action",
+    "resource",
+    "decision",
+    "payloadDigest",
+    "previousEventDigest",
+    "eventDigest",
+    "signature"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "aston.evidence/1.0"
+    },
+    "eventId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "organizationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "agentId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 512
+    },
+    "signer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principalType",
+        "principalId",
+        "keyId"
+      ],
+      "properties": {
+        "principalType": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "pep"
+          ]
+        },
+        "principalId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "keyId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "decisionId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 256
+    },
+    "policyId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 256
+    },
+    "policyVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 256
+    },
+    "eventType": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*){1,5}$"
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_started",
+            "started",
+            "succeeded",
+            "failed",
+            "unknown"
+          ]
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "resultCode": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "downstreamIdempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "action": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*){1,5}$"
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "resourceId"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "resourceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "decidedAt"
+      ],
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "ALLOW",
+            "DENY"
+          ]
+        },
+        "decidedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reasonCode": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+        }
+      }
+    },
+    "payloadDigest": {
+      "$ref": "#/$defs/digest",
+      "description": "SHA-256(JCS(payloadValue)); payloadValue is the canonical JSON payload or JSON null when no payload is supplied. Payload bytes are not embedded in this envelope."
+    },
+    "previousEventDigest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/digest"
+        }
+      ],
+      "description": "Null only for the first event in a chain; otherwise the immediately preceding eventDigest."
+    },
+    "eventDigest": {
+      "$ref": "#/$defs/digest"
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "keyId",
+        "canonicalization",
+        "digestAlgorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "EdDSA"
+        },
+        "keyId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "canonicalization": {
+          "const": "RFC8785"
+        },
+        "digestAlgorithm": {
+          "const": "SHA-256"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{86}$",
+          "contentEncoding": "base64url",
+          "description": "Ed25519 signature, base64url without padding."
+        }
+      }
+    },
+    "timestampReceiptRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "description": "Optional detached trusted timestamp receipt reference. The receipt must cover eventDigest and is not part of the signed core."
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9.-]*:[A-Za-z0-9._/-]+$"
+      },
+      "additionalProperties": true,
+      "description": "Namespaced extensions. Unknown extensions never change core security semantics."
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "SHA-256"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

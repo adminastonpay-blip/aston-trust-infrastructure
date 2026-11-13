@@ -41,29 +41,30 @@
 **Visual:** Buyer segments and land-and-expand path.  
 **Data required before investor use:** independently sourced TAM/SAM/SOM, target geography, buyer interviews, procurement cycles, and willingness-to-pay evidence. Do not insert an unsupported market-size figure.
 
-## 4. Technology — SDK + Fail-Closed
+## 4. Technology — CORE 1.0 + Fail-Closed
 
-**Core message:** A portable evidence format and a policy gate address two distinct problems: proving what evidence says, and preventing a protected action when required checks are not satisfied.
+**Core message:** CORE 1.0 implements an isolated policy-gated execution path: protected model inference must pass the SafetyInterlock before the sole Model Runner can invoke the model.
 
-- Public aston-attestation-sdk: JSON Schema Draft 2020-12, verification guide, reference verifier, and proof-package fixture.
-- Cryptographic checks: certificate trust or pinned fingerprint, detached signature, digest integrity, and timestamp-proof verification.
-- Fail-Closed policy: failed, missing, or indeterminate mandatory checks do not become approval.
-- Independent verification can be performed outside the ASTON runtime.
+- **CORE 1.0 automated CI:** 23/23 tests passed in GitHub Actions run [#71](https://github.com/adminastonpay-blip/aston-trust-infrastructure/actions/runs/43171874691), on commit [79f552b](https://github.com/adminastonpay-blip/aston-trust-infrastructure/commit/79f552b23432830a2db68754f3ed7e4efb5006c8).
+- **Architectural Fail-Closed control:** an automated source-level test checks that `env.AI.run()` is reachable only from the guarded `src/core/model-runner.mjs`; the SafetyInterlock denies requests when required identity, policy, status, resource, or budget checks fail.
+- **Integration coverage:** authorization, replay rejection, revocation, tenant isolation, SQLite persistence/concurrency, and independent staging invocation ledger.
+- **Evidence layer:** portable attestation SDK, structured digests/signatures, and independent verification remain distinct from CORE's model-execution gate.
 
-**Visual:** Sequence: proposal → policy gate → execution authorization → signed evidence package → independent verifier.  
-**Qualification:** The public SDK's current CI validates its test fixture and negative cases. Authentic Bitcoin timestamp verification and production issuer trust remain separate milestones.
+**Visual:** proposal → SafetyInterlock → sole Model Runner → independent invocation ledger.  
+**Qualification:** 23/23 refers to automated repository CI, not a hosted Cloudflare deployment or external security certification. The architecture test is a source-level guard, not proof against code or execution paths outside this repository. Real Cloudflare Access/mTLS, cryptographic identity/policy proofs, and end-to-end staging validation remain pending.
 
-## 5. Traction — OpenSSF + reproducible CI evidence
+## 5. Traction — OpenSSF + CORE 1.0 reproducible CI
 
-**Core message:** The project is building verifiable engineering discipline and a public technical footprint.
+**Core message:** The project now has a reproducible, isolated CORE 1.0 implementation test baseline in addition to its public SDK engineering evidence.
 
+- **CORE 1.0 CI:** GitHub Actions run [#71](https://github.com/adminastonpay-blip/aston-trust-infrastructure/actions/runs/43171874691) completed successfully on the implementation branch: **23/23 automated tests passed** (6 core unit tests, 1 architecture guard, and 16 integration tests).
+- **Fail-Closed architecture guard:** CI verifies that the repository's direct `env.AI.run()` call is confined to the guarded Model Runner; integration tests cover policy denial, replay, revocation, tenant boundaries, and fail-closed storage errors.
 - **OpenSSF Best Practices:** ATI README records project ID 16476 and Passing status shown in owner-provided screenshots dated 2026-11-09; 100% Passing-level completion and 113% overall progress as displayed by the program. The 113% figure is not a 113% score or a higher badge tier.
-- **GitHub Actions:** public aston-attestation-sdk workflow run 43159962309 completed successfully. It accepted the test signature, rejected a tampered manifest, and rejected a deliberately invalid OTS fixture.
-- **Engineering honesty:** fixture checks are labelled as test evidence; no claim is made that a real Bitcoin timestamp has been completed.
-- **Current maturity:** ATI repository gap matrix classifies several modules as unit-tested or prototype and explicitly marks production status as not achieved.
+- **Public SDK evidence:** workflow run 43159962309 completed successfully. It accepted the test signature, rejected a tampered manifest, and rejected a deliberately invalid OTS fixture.
+- **Engineering honesty:** CORE 1.0 has not yet been deployed or E2E-validated on Cloudflare. Authentic Bitcoin timestamp verification and production issuer trust remain separate milestones.
 
-**Visual:** Verified OpenSSF badge screenshot + GitHub Actions green run + test matrix.  
-**Investor diligence pack:** link to live badge and assessment, exact CI run, repository commits, and a fresh status check immediately before presentation. OpenSSF Passing is a project self-assessment, not an independent security audit or product certification.
+**Visual:** CORE 1.0 green CI run + architecture guard + OpenSSF badge + public SDK test run.  
+**Investor diligence pack:** link to exact CORE CI run and commit, public SDK workflow, live OpenSSF badge/assessment, and a fresh status check immediately before presentation. Passing CI and OpenSSF status are engineering evidence, not independent security audits, product certification, or proof of production readiness.
 
 ## 6. Business Model — Open Core + Enterprise Licenses
 

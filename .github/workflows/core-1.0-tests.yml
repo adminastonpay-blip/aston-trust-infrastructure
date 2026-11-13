@@ -1,0 +1,25 @@
+name: CORE 1.0 isolated tests
+
+on:
+  push:
+    branches: [feat/core-1.0-implementation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-1-0-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts --no-audit --no-fund --legacy-peer-deps
+      - run: npm test

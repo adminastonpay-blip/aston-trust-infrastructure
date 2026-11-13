@@ -2,18 +2,24 @@
   "name": "aston-trust-infrastructure",
   "version": "2.0.0-draft",
   "private": true,
-  "description": "ASTON TRUST INFRASTRUCTURE (ATI 2.0) — reference core for governed, verifiable decisions",
+  "description": "ASTON TRUST INFRASTRUCTURE — CORE 1.0 isolated reference implementation",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.mjs",
-    "check": "echo \"Typecheck runs in the Worker repo; this package is source reference\""
+    "test": "npm run test:core && npm run test:architecture && npm run test:unit && npm run test:integration",
+    "test:core": "node --test tests/evidence.test.mjs tests/agent-identity.test.mjs",
+    "test:integration": "vitest run",
+    "test:architecture": "node --test tests/model-runner-architecture.test.mjs",
+    "test:unit": "vitest run --config vitest.unit.config.mjs"
   },
-  "license": "UNLICENSED",
-  "keywords": [
-    "aston",
-    "trust",
-    "decision-passport",
-    "governance",
-    "arp-1"
-  ]
+  "dependencies": {
+    "canonicalize": "2.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.6.1",
+    "vitest": "4.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "UNLICENSED"
 }
