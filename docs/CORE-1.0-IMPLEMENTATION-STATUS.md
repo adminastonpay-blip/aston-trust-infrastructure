@@ -72,7 +72,17 @@ The following code was added on `feat/core-1.0-implementation` after the earlier
 - The separate Model Runner Worker and its replay-guard Durable Object have source code but are not deployed or connected to a hosted service binding.
 - The Merkle batch coordinator does not yet persist pending batches across process restarts, schedule periodic flushes, submit Bitcoin/OpenTimestamps transactions or verify external anchor receipts.
 - Violation reports are signed by the isolated Model Runner's configured report key. The report records an unverified caller when permit validation fails; it does not claim cryptographic attribution to an agent whose identity has not been authenticated.
-- These code changes have **not been executed locally in this environment**. The current execution environment cannot resolve `github.com`, so the private repository could not be cloned and Vitest/Miniflare could not be run here. No test pass is claimed. Local test command after checkout and dependency installation: `npm test`.
+- These code changes were not executed in the assistant's local container; the private repository could not be cloned there. However, GitHub Actions completed the repository's `npm test` command successfully on 2026-11-13 for commit `12f54fd327c72183f2e5ffc8137375b0a6e87a90` (workflow run #89). The run executed the Node test suite (6/6), architecture checks (3/3), Vitest unit tests (6/6), and Miniflare/Vitest integration tests (16/16): **31 tests passed, 0 failed**. The workflow installed dependencies using `npm install --ignore-scripts --no-audit --no-fund --legacy-peer-deps`, not `npm ci`. This is CI evidence for the tested feature-branch commit, not a claim that tests were run on the user's machine or that hosted Cloudflare/production behavior was validated.
 
 These changes are implementation work in an isolated feature branch, not production deployment, independent certification, proof of network-level isolation, or evidence of hosted end-to-end behavior.
 
+
+
+### GitHub Actions validation — 2026-11-13
+
+- **Result:** PASS — workflow run [#89](https://github.com/adminastonpay-blip/aston-trust-infrastructure/actions/runs/43380632706).
+- **Tested commit:** `12f54fd327c72183f2e5ffc8137375b0a6e87a90` on `feat/core-1.0-implementation`.
+- **Observed counts:** Node tests 6/6; architecture checks 3/3; Vitest unit tests 6/6; Miniflare/Vitest integration tests 16/16. Total: **31 passed, 0 failed**.
+- The integration suite includes the authorized Model Runner call, independent staging invocation-ledger increment, replay rejection, wrong-model denial, and post-revocation denial.
+- The workflow step was `npm test`; dependency installation used `npm install --ignore-scripts --no-audit --no-fund --legacy-peer-deps`. It did not run `npm ci`.
+- This result validates the tested code under GitHub Actions' local test runtime only. It is not a hosted Cloudflare E2E test, deployment, production certification, or approval to resume the paused Cloudflare phases.
