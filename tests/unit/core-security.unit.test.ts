@@ -24,9 +24,31 @@ describe("CORE 1.0 security modules",()=>{
   expect(tree.root).toMatch(/^[a-f0-9]{64}$/);expect(await verifyMerkleProof(proof)).toBe(true);
   expect(await verifyMerkleProof({...proof,root:"f".repeat(64)})).toBe(false);
   const batcher=new EvidenceBatcher({maxBatchSize:2});batcher.add(ds[0]);batcher.add(ds[1]);
-  expect((await batcher.flush()).anchored).toBe(false);expect(batcher.size).toBe(2);
+  const prepared=await batcher.flush();expect(prepared.anchored).toBe(false);expect(batcher.size).toBe(2);
   await expect(batcher.flush({anchor:async()=>{throw Error("anchor down");}})).rejects.toThrow();expect(batcher.size).toBe(2);
-  expect((await batcher.flush({anchor:async({root})=>({receipt:root})})).anchored).toBe(true);expect(batcher.size).toBe(0);
+  const anchored=await batcher.flush({anchor:async({root})=>({receipt:root})});
+  expect(anchored.anchored).toBe(true);expect(anchored.batchId).toBe(prepared.batchId);expect(batcher.size).toBe(0);
+ });
+ it("rejects reuse of a signed permit at the Model Runner boundary",async()=>{
+  const pair=await crypto.subtle.generateKey({name:"Ed25519"},true,["sign","verify"]);
+  const priv=encodePermitKey(await crypto.subtle.exportKey("pkcs8",pair.privateKey));
+  const pub=encodePermitKey(await crypto.subtle.exportKey("spki",pair.publicKey));
+  const authorization={decision:"ALLOW",action:"ai.inference",resourceId:"model-r",requestId:"request-replay-01",
+    organizationId:"org-r",policyId:"policy-r",policyVersion:1};
+  const inputs={prompt:"only once"};
+  const token=await createPermitToken({authorization,agentId:"agent-r",model:"model-r",inputs,privateKey:priv,keyId:"permit-r"});
+  const consumed=new Set();let modelCalls=0;
+  const guard={idFromName:id=>id,get:id=>({fetch:async req=>{const v=await req.json();
+    if(consumed.has(v.tokenId))return Response.json({ok:false},{status:409});
+    consumed.add(v.tokenId);return Response.json({ok:true});}})};
+  const runnerEnv={AI:{run:async()=>{modelCalls++;return {ok:true};}},PERMIT_SIGNING_PUBLIC_KEY:pub,
+    PERMIT_SIGNING_KEY_ID:"permit-r",PERMIT_REPLAY_GUARD:guard};
+  const invoke=()=>modelRunnerWorker.fetch(new Request("https://runner.test/infer",{method:"POST",
+    headers:{"content-type":"application/json",authorization:"Permit "+token},
+    body:JSON.stringify({requestId:"request-replay-01",model:"model-r",inputs})}),runnerEnv,{});
+  expect((await invoke()).status).toBe(200);
+  expect((await invoke()).status).toBe(403);
+  expect(modelCalls).toBe(1);
  });
  it("creates independently verifiable Ed25519 violation JSON",async()=>{
   const pair=await crypto.subtle.generateKey({name:"Ed25519"},true,["sign","verify"]);
