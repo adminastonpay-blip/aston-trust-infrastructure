@@ -4,6 +4,7 @@ import {createPermitToken,verifyPermitToken,encodePermitKey} from "../../src/cor
 import {buildMerkleTree,createMerkleProof,verifyMerkleProof} from "../../src/core/merkle-tree.ts";
 import {EvidenceBatcher} from "../../src/core/merkle-batcher.mjs";
 import {createViolationReport,verifyViolationReport} from "../../src/core/violation-report.ts";
+import modelRunnerWorker from "../../src/model-runner/worker.mjs";
 import {CloudflareSQLiteDatabase} from "../../src/adapters/CloudflareSQLiteDatabase.mjs";
 import {CloudflareAIProvider} from "../../src/adapters/CloudflareAIProvider.mjs";
 globalThis.crypto??=webcrypto;
@@ -33,6 +34,17 @@ describe("CORE 1.0 security modules",()=>{
    requestId:"req-violation-01",model:"model-a",actor:"unverified-caller",route:"/infer",details:{permitPresented:false}},pair.privateKey,"vk1");
   expect(await verifyViolationReport(report,pair.publicKey)).toBe(true);
   expect(await verifyViolationReport({...report,actor:"forged"},pair.publicKey)).toBe(false);
+ });
+ it("returns a signed violation report when the Model Runner receives no SafetyInterlock permit",async()=>{
+  const pair=await crypto.subtle.generateKey({name:"Ed25519"},true,["sign","verify"]);
+  const response=await modelRunnerWorker.fetch(new Request("https://runner.test/infer",{method:"POST",
+    headers:{"content-type":"application/json"},body:JSON.stringify({requestId:"request-bypass-01",model:"model-a",inputs:{prompt:"x"}})}),{
+      VIOLATION_SIGNING_PRIVATE_KEY:pair.privateKey,VIOLATION_SIGNING_KEY_ID:"violation-test"
+    },{});
+  expect(response.status).toBe(403);
+  const body=await response.json();
+  expect(body.error).toBe("INVALID_OR_MISSING_SAFETY_PERMIT");
+  expect(await verifyViolationReport(body.violationReport,pair.publicKey)).toBe(true);
  });
  it("adapts SQLite and AI behind narrow ports",async()=>{
   const calls=[];const db=new CloudflareSQLiteDatabase({sql:{exec:(...args)=>{calls.push(args);return{toArray:()=>[{ok:true}]};}},transactionSync:fn=>fn()});
