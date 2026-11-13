@@ -38,7 +38,7 @@ describe("CORE 1.0 security modules",()=>{
   const inputs={prompt:"only once"};
   const token=await createPermitToken({authorization,agentId:"agent-r",model:"model-r",inputs,privateKey:priv,keyId:"permit-r"});
   const consumed=new Set();let modelCalls=0;
-  const guard={idFromName:id=>id,get:id=>({fetch:async req=>{const v=await req.json();
+  const guard={idFromName:id=>id,get:id=>({fetch:async(input,init)=>{const req=new Request(input,init);const v=await req.json();
     if(consumed.has(v.tokenId))return Response.json({ok:false},{status:409});
     consumed.add(v.tokenId);return Response.json({ok:true});}})};
   const runnerEnv={AI:{run:async()=>{modelCalls++;return {ok:true};}},PERMIT_SIGNING_PUBLIC_KEY:pub,
