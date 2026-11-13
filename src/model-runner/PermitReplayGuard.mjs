@@ -11,7 +11,7 @@ export class PermitReplayGuard {
     if(request.method!=="POST"||new URL(request.url).pathname!=="/consume")return json({ok:false,error:"NOT_FOUND"},404);
     let body;try{body=await request.json();}catch{return json({ok:false,error:"INVALID_JSON"},400);}
     if(typeof body?.tokenId!=="string"||!body.tokenId||!Number.isSafeInteger(body.expiresAt))return json({ok:false,error:"INVALID_PERMIT_ID"},400);
-    try{return this.db.transactionSync(()=>{
+    try{return this.db.transaction(()=>{
       const now=Math.floor(Date.now()/1000);
       this.db.exec("DELETE FROM consumed_permits WHERE expires_at < ?",now-3600);
       try{this.db.exec("INSERT INTO consumed_permits (token_id,expires_at,consumed_at) VALUES (?,?,?)",body.tokenId,body.expiresAt,now);return json({ok:true,consumed:true});}
