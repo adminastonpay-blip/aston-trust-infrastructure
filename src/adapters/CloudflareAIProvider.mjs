@@ -1,4 +1,5 @@
 /** Workers AI adapter. Construct only inside the isolated Model Runner service. */
+/** @implements {import('../ports/IAIProvider').IAIProvider} */
 export class CloudflareAIProvider {
   constructor(binding) {
     if (!binding || typeof binding.run !== "function") throw new TypeError("Workers AI binding unavailable");
