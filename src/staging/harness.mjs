@@ -1,3 +1,5 @@
+import { CloudflareSQLiteDatabase } from "../adapters/CloudflareSQLiteDatabase.mjs";
+
 /**
  * Isolated staging-only audit harness. This is a deterministic deny fixture,
  * not a production prompt-injection detector or proxy to an existing model API.
@@ -98,11 +100,11 @@ export async function handleAuditTarget(request, env) {
 /** Independent SQLite counter partitioned by correlation ID. */
 export class StagingInvocationLedger {
   constructor(state) {
-    this.sql = state.storage.sql;
+    this.db = new CloudflareSQLiteDatabase(state.storage);
     this.healthy = true;
     state.blockConcurrencyWhile(async () => {
       try {
-        this.sql.exec(`CREATE TABLE IF NOT EXISTS model_invocations (
+        this.db.exec(`CREATE TABLE IF NOT EXISTS model_invocations (
           correlation_id TEXT PRIMARY KEY,
           invocation_count INTEGER NOT NULL CHECK (invocation_count >= 0),
           updated_at TEXT NOT NULL
@@ -117,7 +119,7 @@ export class StagingInvocationLedger {
     const url = new URL(request.url);
     try {
       if (request.method === "GET" && url.pathname === "/count") {
-        const row = this.sql.exec(
+        const row = this.db.exec(
           "SELECT invocation_count FROM model_invocations WHERE correlation_id = ?", correlationId
         ).toArray()[0];
         return json({ ok: true, correlationId, model_invocations: row?.invocation_count ?? 0 });
@@ -125,11 +127,11 @@ export class StagingInvocationLedger {
       if (request.method === "POST" && url.pathname === "/increment") {
         const body = await request.json();
         if (body?.correlationId !== correlationId) return json({ ok: false, error: "CORRELATION_ID_MISMATCH" }, 400);
-        this.sql.exec(`INSERT INTO model_invocations (correlation_id, invocation_count, updated_at)
+        this.db.exec(`INSERT INTO model_invocations (correlation_id, invocation_count, updated_at)
           VALUES (?, 1, ?) ON CONFLICT(correlation_id) DO UPDATE SET
           invocation_count = invocation_count + 1, updated_at = excluded.updated_at`,
           correlationId, new Date().toISOString());
-        const row = this.sql.exec(
+        const row = this.db.exec(
           "SELECT invocation_count FROM model_invocations WHERE correlation_id = ?", correlationId
         ).toArray()[0];
         return json({ ok: true, correlationId, model_invocations: row.invocation_count });
