@@ -60,7 +60,7 @@ export class AgentIdentity {
   }
 
   #transaction(fn) {
-    return this.db.transactionSync(fn);
+    return this.db.transaction(fn);
   }
 
   #agent() {
