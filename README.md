@@ -52,6 +52,16 @@ See [spec/PIONEER-2030.md](spec/PIONEER-2030.md) and [docs/PIONEER-ROADMAP.md](d
 4. Sovereign Economic Middleware  
 5. **Pioneer 2030** — privacy audit track, algorithmic coverage, inter-agent intention  
 
+## Vision 2035 — Three Strategic Breakthroughs
+
+ASTON's long-term roadmap explores three next-generation capabilities built on the Trust Fabric, Protocol and Network:
+
+1. **Agentic Escrow** — policy-controlled, evidence-conditioned settlement for machine-to-machine commerce.
+2. **ZK-Agent Attestation** — privacy-preserving proofs that selected AI governance predicates were satisfied.
+3. **Physical Attestation Edge** — hardware-rooted device identity and verifiable telemetry for robotics and industrial systems.
+
+These are strategic research and product bets, not claims of current production capability. Cloudflare Wallets, x402 escrow flows, production ZK circuits and ESP32/ATECC608 device attestation each have availability, integration, security and regulatory dependencies. See the bilingual [Strategic Breakthroughs 2035](docs/STRATEGIC-BREAKTHROUGHS-2035.md) architecture and maturity boundaries.
+
 ## Core modules
 
 | Module | Role |
