@@ -133,6 +133,13 @@
 **Visual:** Roadmap from verifiable prototype to interoperable trust infrastructure.  
 **Closing line:** “AI can act at machine speed. Trust must be independently verifiable—and authority must stop when proof is missing.”
 
+**Next-Gen Capabilities — Vision 2035 (strategic research, not current product claims):**
+- Agentic Escrow: policy-controlled, evidence-conditioned machine-to-machine settlement.
+- ZK-Agent Attestation: privacy-preserving proof of selected AI governance controls.
+- Physical Attestation Edge: hardware-rooted identity and verifiable telemetry for robotics and industrial systems.
+
+*These are long-horizon opportunities subject to technical validation, customer demand, provider availability, security review and regulatory analysis. See `docs/STRATEGIC-BREAKTHROUGHS-2035.md`.*
+
 ---
 
 ## Appendix — Investor diligence items to complete
