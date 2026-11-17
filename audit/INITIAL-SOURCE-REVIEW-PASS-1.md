@@ -92,3 +92,14 @@
 ## 6. Important limits
 
 This review is not a penetration test, runtime validation, complete code audit, independent cryptographic review or production assessment. No vulnerability is declared solely from the observations above. Each question remains open until source tracing and reproducible tests establish the behavior.
+
+
+## GOV-001 — Organization rulesets and effective branch governance
+
+- **Severity:** CRITICAL governance risk; blocks any claim that protected-branch governance is validated.
+- **Evidence status:** repository-level branch API reports `main` as unprotected for the inspected repositories; organization rulesets and effective inherited rules could not be read through the current GitHub integration. Absence of rulesets is **not** established.
+- **Disposition:** **TEMPORARILY ACCEPTED RISK** for this bounded, read-only / test-only audit period, not a control pass and not a waiver for production changes or merges.
+- **Risk owner:** `adminastonpay-blip` (repository owner / project maintainer) is assigned accountability for obtaining organization-level evidence and recording the acceptance. This assignment does not assert that GitHub organization settings were changed.
+- **Review date:** **2026-11-24**.
+- **Compensating restrictions until review:** no merges, no production deployments, no Cloudflare changes, no secrets/releases changes; all work remains on isolated branches and draft PRs. If these restrictions cannot be maintained, stop work and escalate rather than rely on this temporary acceptance.
+- **Exit criteria:** obtain authoritative organization ruleset/effective-rule evidence, including bypass actors, required reviews/status checks, admin enforcement, and scope; then either validate the control or renew/escalate the documented risk with a new owner decision and review date.
