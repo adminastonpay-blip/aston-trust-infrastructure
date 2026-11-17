@@ -1,0 +1,89 @@
+{
+  "standard": "CISOKit Open Security Standard",
+  "source_snapshot": "public crosswalk page snapshot 2026-11-09; upstream version identifier not established",
+  "records": [
+    {
+      "control_id": "IAM-1",
+      "domain": "Identity & Access",
+      "tier": "L1",
+      "title": "Multi-Factor Authentication (all users)",
+      "source_url": "https://cisokit.com/framework/crosswalks",
+      "record_kind": "illustrative",
+      "mappings": [
+        {
+          "framework": "CIS Controls v8",
+          "control_ids": [
+            "6.3",
+            "6.5"
+          ]
+        },
+        {
+          "framework": "NIST SP 800-53 Rev 5",
+          "control_ids": [
+            "IA-2(1)",
+            "IA-2(2)"
+          ]
+        },
+        {
+          "framework": "ISO/IEC 27001:2022",
+          "control_ids": [
+            "A.8.5"
+          ]
+        },
+        {
+          "framework": "SOC 2 TSC",
+          "control_ids": [
+            "CC6.1"
+          ]
+        }
+      ]
+    },
+    {
+      "control_id": "IR-1",
+      "domain": "Incident Response",
+      "tier": "L1",
+      "title": "Documented incident response plan",
+      "source_url": "https://cisokit.com/framework/crosswalks",
+      "record_kind": "illustrative",
+      "mappings": [
+        {
+          "framework": "CIS Controls v8",
+          "control_ids": [
+            "17.1",
+            "17.2"
+          ]
+        },
+        {
+          "framework": "NIST SP 800-53 Rev 5",
+          "control_ids": [
+            "IR-1",
+            "IR-8"
+          ]
+        }
+      ]
+    },
+    {
+      "control_id": "BAK-1",
+      "domain": "Backup & Recovery",
+      "tier": "L1",
+      "title": "Regular backups of critical data",
+      "source_url": "https://cisokit.com/framework/crosswalks",
+      "record_kind": "illustrative",
+      "mappings": [
+        {
+          "framework": "CIS Controls v8",
+          "control_ids": [
+            "11.2"
+          ]
+        },
+        {
+          "framework": "NIST SP 800-53 Rev 5",
+          "control_ids": [
+            "CP-9"
+          ]
+        }
+      ]
+    }
+  ],
+  "notice": "Illustrative seed only: not a complete COSS catalogue, not an assessment, and not an endorsement. Verify current upstream source and redistribution terms before canonical import."
+}
