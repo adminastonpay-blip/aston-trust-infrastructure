@@ -571,3 +571,151 @@ In addition to Section 15, the following must be satisfied before the integrated
 - [ ] Blue-ocean hypotheses are mapped to competitors, buyers, willingness-to-pay and measurable acceptance criteria.
 - [ ] One initial design-partner workflow is selected and bounded.
 - [ ] No customer, revenue, production, patent or certification claim is made without supporting evidence.
+
+
+## 23. ASTON Cyber Dome — layered cyber-resilience architecture
+
+### 23.1 Strategic analogy and claim boundary
+
+ASTON may use **“Cyber Dome”** as a strategic analogy for layered cyber defense and resilience: detect where possible, assess context, prevent unauthorized actions at the execution boundary, contain compromise, preserve evidence, and recover from verified state.
+
+The analogy is not a claim of equivalence to a kinetic missile-defense system, nor a guarantee that every attack will be detected, intercepted, or prevented. ASTON must not claim that “no successful attack can become a catastrophe” as an assured outcome. The defensible objective is to **reduce the probability and impact of compromise, constrain what a compromised identity or agent can do, and improve containment and recovery with measurable evidence**.
+
+A layered system assumes that individual controls can fail. No single sensor, model, policy service, cryptographic key, adapter, or operator is trusted as the only line of defense.
+
+### 23.2 Layer mapping
+
+| Layered-defense analogy | ASTON capability | Intended function | Limitation / required evidence |
+|---|---|---|---|
+| Early-warning radar | Attack Surface Intelligence + Threat Intelligence + telemetry | Identify exposed assets, suspicious signals and relevant threat context | Visibility is incomplete; feeds and telemetry can be poisoned, delayed or absent |
+| Battle-management system | Trust Fabric | Correlate identity, tenant, delegation, policy, asset context, risk and evidence | Must prove authoritative sources, bounded latency and deterministic decision semantics |
+| Interceptor / action barrier | SafetyInterlock + enforcement adapter + Immune Fabric | Prevent or constrain a prohibited action before it reaches the protected resource | Must be enforced at every in-scope execution path; code presence alone is not proof |
+| Shelters / continuity layer | Recovery Fabric + customer-native resilience controls | Isolate affected scope, restore verified recovery points and validate service integrity | Recovery time and restoration success must be measured; never promise “seconds” without evidence |
+| Independent proof layer | Attestation SDK + Trust Fabric evidence + independent verifier | Let a separate party verify defined artifacts, decisions and execution evidence | Does not prove that every attack was detected or that the environment was uncompromised |
+
+The layers complement existing customer controls; ASTON must not imply that it replaces firewalls, EDR, backups, network segmentation, identity providers, incident response or physical safety systems.
+
+### 23.3 SafetyInterlock — critical action-boundary control
+
+SafetyInterlock is the critical authorization barrier for protected actions. It must evaluate the exact action at the point where execution can still be prevented.
+
+**Required decision sequence:**
+
+1. Receive the proposed action from an authenticated workload or agent.
+2. Normalize the request into a canonical representation and assign a unique correlation identifier.
+3. Verify subject, agent identity, tenant lifecycle, delegation chain, credential status and requested audience.
+4. Resolve the exact resource, operation, environment and customer-defined impact class.
+5. Load the applicable policy by immutable version/digest; reject missing, ambiguous or unsupported policy.
+6. Obtain required risk and asset context, validating source, freshness, scope and provenance. Risk scores are advisory inputs, never standalone permission.
+7. Check permit prerequisites: action binding, policy version, nonce, expiry, audience, replay status, budget/concurrency reservation and any human approval.
+8. Produce an explicit decision: DENY, REQUIRE_HUMAN, ALLOW_BOUNDED or DEGRADED.
+9. If allowed, issue a short-lived, single-purpose permit bound to the canonical action and intended enforcement point.
+10. At execution, the enforcement adapter independently validates the permit and confirms that the action being executed matches the authorized action.
+11. Record the actual enforcement result and evidence, including denials and failures.
+12. Reconcile the permit as consumed, expired or revoked; prevent reuse.
+
+**The permit is not a general authorization token.** It must not be transferable to a different action, tenant, resource, environment or audience. A mismatch between the authorized request and the execution request results in denial.
+
+### 23.4 Fail-closed behavior and degraded modes
+
+Fail-closed applies to the protected action boundary, not as an indiscriminate shutdown of every customer system.
+
+| Condition | Required result for critical protected actions |
+|---|---|
+| Identity or tenant cannot be verified | DENY |
+| Tenant is suspended, revoked or unresolved | DENY |
+| Policy is missing, expired, malformed or ambiguous | DENY |
+| SafetyInterlock is unavailable | DENY; no bypass to direct execution |
+| Required threat/asset context is unavailable or too stale | DENY or REQUIRE_HUMAN according to pre-approved policy; never infer safety from missing signals |
+| Permit signature, scope, audience or expiry is invalid | DENY |
+| Nonce is reused or replay state is unavailable | DENY |
+| Human approval is required but absent or unverifiable | REQUIRE_HUMAN; execution remains blocked |
+| Budget or concurrency reservation cannot be made atomically | DENY |
+| Evidence service is unavailable where evidence is mandatory | DENY, unless a specifically approved bounded buffer mode exists |
+| Clock or freshness guarantees are outside tolerance | DENY time-sensitive permits |
+| Detection service is unavailable | Mark visibility DEGRADED; continue only actions whose policy explicitly permits operation without that signal |
+| Independent verifier is unavailable | Do not claim VERIFIED; block only those actions whose policy requires synchronous verification |
+
+No timeout, exception handler, fallback route, retry, legacy endpoint or emergency mode may silently convert a denial into permission. Any offline-safe exception must be explicit, narrow, time-bounded, customer-approved, tested and auditable.
+
+### 23.5 Enforcement completeness and bypass resistance
+
+SafetyInterlock only protects an action if all relevant execution paths are forced through it. The implementation must therefore inventory and test:
+
+- direct API routes and internal service calls;
+- agent tool adapters and MCP tool execution;
+- scheduled jobs, queues, retries and background workers;
+- administrative and break-glass paths;
+- recovery, containment and automation commands;
+- cloud, edge, on-premises and OT connectors;
+- alternate credentials, service accounts and legacy integrations.
+
+For every protected resource, define the authoritative enforcement point and prove that direct access cannot bypass it within the stated threat model. If an enforcement point cannot be controlled by ASTON, the product must disclose the limitation and rely on a customer-controlled policy enforcement point or mark the resource out of scope.
+
+### 23.6 Atomicity, race conditions and idempotency
+
+Authorization and resource reservation must not be separated by an exploitable time-of-check/time-of-use gap. Where an action consumes money, quota, concurrency or another scarce resource, the permit path must reserve that capacity atomically or use an equivalent transactional protocol.
+
+Retries must be idempotent. A consumed, expired, revoked or replayed permit must not authorize a second execution. Concurrency tests must include simultaneous requests, delayed messages, duplicate delivery, partial failure and process restart.
+
+### 23.7 Active defense — lawful defensive operations only
+
+ASTON Immune Fabric may support active defensive measures within systems and environments the customer owns or is explicitly authorized to administer:
+
+- **Deception:** isolated honeypots, decoy services, synthetic credentials and instrumented traps that do not expose third-party systems or real customer secrets.
+- **Dynamic isolation:** narrow quarantine of a workload, credential, tool, connector or network segment under an approved policy and safety envelope.
+- **Credential and session containment:** revoke or suspend scoped credentials, sessions and permits through authorized control planes.
+- **Threat neutralization inside the authorized boundary:** block malicious requests, disable compromised integrations, rate-limit abuse and preserve forensic evidence.
+- **Threat attribution support:** correlate indicators and evidence with confidence levels, alternative hypotheses and provenance. Attribution is probabilistic unless independently established; an IP address or indicator alone does not prove an actor's identity.
+
+ASTON must not perform unauthorized access, destructive retaliation, malware deployment, denial-of-service, credential theft, or “hack back” against suspected attackers or third-party infrastructure. Offensive security testing requires explicit written authorization, defined scope, time window, rules of engagement and stop conditions. Deception systems must be segmented, monitored and prevented from becoming launch points against others.
+
+### 23.8 Recovery and continuity as the final defensive layer
+
+If prevention or containment fails, Recovery Fabric must support a controlled path back to a known-good state:
+
+1. isolate affected assets and preserve volatile and durable evidence where feasible;
+2. identify candidate recovery points and validate their integrity, provenance and trust status;
+3. reject backups or images with unresolved compromise indicators;
+4. obtain customer approval according to impact tier;
+5. restore in an isolated environment where possible;
+6. validate identity, keys, configurations, dependencies and persistence mechanisms;
+7. reconnect in stages under bounded permits;
+8. monitor for recurrence and preserve the recovery evidence package.
+
+Recovery objectives (RTO/RPO), restoration duration and data-loss bounds are customer- and workload-specific measurable targets, not universal ASTON guarantees.
+
+### 23.9 Independent assurance and operational metrics
+
+The Cyber Dome claim must be supported by measurable, scoped evidence, including:
+
+- percentage of in-scope execution paths protected by an enforced interlock;
+- bypass-test results and negative authorization test coverage;
+- permit validation latency and failure behavior under load;
+- replay, race-condition and atomic-reservation test results;
+- detection coverage and known visibility gaps;
+- containment time, false-positive rate and rollback success;
+- recovery time, recovery-point integrity and post-restore validation;
+- evidence completeness, signature verification and independent-verifier outcomes;
+- degraded-mode behavior during dependency, identity, key and control-plane failures.
+
+Metrics must state test environment, workload, sample size, date, commit/version, assumptions and residual risks. No metric may be generalized beyond the tested scope.
+
+### 23.10 SafetyInterlock acceptance gates
+
+SafetyInterlock is not considered validated until all applicable gates pass:
+
+- [ ] Every in-scope action path is inventoried and has an authoritative enforcement point.
+- [ ] Direct, alternate, legacy and administrative bypass attempts are denied or explicitly documented as out of scope.
+- [ ] Identity, tenant, delegation and policy failures fail closed.
+- [ ] Permit is bound to canonical action, resource, tenant, audience, policy digest, nonce and expiry.
+- [ ] Permit replay, mutation, cross-tenant use and cross-resource use are rejected.
+- [ ] Time-of-check/time-of-use and atomic budget/concurrency races are tested.
+- [ ] Human approval cannot be forged, replayed or silently skipped.
+- [ ] Dependency outages and degraded modes match the decision table.
+- [ ] Enforcement result and denial evidence are independently verifiable.
+- [ ] Compromise of the interlock, adapter, key or control plane has a documented independent recovery path.
+- [ ] Adversarial testing is completed by a party independent of the implementation team before external claims of validated protection.
+- [ ] Production status is claimed only after a separately authorized deployment, operational monitoring and customer acceptance.
+
+**Status:** This section defines the target architecture and acceptance requirements. It does not establish that the Cyber Dome, all-layer interception, active defense, complete enforcement coverage or recovery objectives are currently implemented, validated or deployed.
