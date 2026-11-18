@@ -359,3 +359,215 @@ The following decisions remain open and must be resolved with evidence:
 ---
 
 **Status statement:** This is an architecture baseline for review. It is not evidence that ASTON currently implements, tests, validates, or operates all capabilities described herein.
+
+
+## 16. Integrated product definition and value proposition
+
+### 16.1 One-sentence definition
+
+**ASTON is a trust and verification layer for autonomous AI actions.** It does not replace the model's reasoning. It governs whether a proposed action may execute, constrains that execution, and produces evidence that an independent party can inspect.
+
+This is a product definition and target architecture, not a claim that every control is already implemented or deployed.
+
+### 16.2 Integrated platform analogy
+
+| Layer / component | Role in the unified platform |
+|---|---|
+| ASTON OS | The body: sovereign runtime and decision-execution environment |
+| Trust Fabric | The nervous system: identity, policy, delegation, provenance, manifests, signatures, evidence |
+| Immune Fabric | The immune system: threat context, detection, containment, recovery, resilience |
+| SafetyInterlock | The handbrake at the action boundary: permits or blocks execution |
+| Attestation SDK | The open interoperability surface: portable schemas and verification primitives |
+
+These are not separate products competing for authority. They are coordinated layers of one platform with explicit ownership and versioned contracts.
+
+### 16.3 Normative value flow
+
+```text
+Proposed action
+   -> normalize and bind exact action/resource/context
+   -> verify identity, tenant lifecycle, delegation and policy
+   -> enrich with asset and threat context
+   -> SafetyInterlock decision
+        -> DENY / REQUIRE_HUMAN / bounded PERMIT / DEGRADED
+   -> enforcement adapter validates permit at execution boundary
+   -> protected resource executes within authorized scope
+   -> Trust Fabric records manifest, digest, signature and execution evidence
+   -> independent verifier evaluates the evidence package
+   -> optional external timestamp, only when its receipt is independently verified
+```
+
+A permit must be bound to the canonical action, subject, tenant, resource, audience, policy version, nonce, expiry, and any required budget or concurrency reservation. A generic IAM token or a model statement that an action is authorized is insufficient.
+
+An external timestamp service is optional. A workflow, stub, local receipt, or unverified response must never be represented as a confirmed Bitcoin/OpenTimestamps anchor.
+
+### 16.4 Decision Passport
+
+The **Decision Passport** is the proposed portable authorization-and-evidence object for one bounded action. It should bind, at minimum:
+
+- canonical action and resource digest;
+- subject, agent, tenant, environment and audience;
+- policy identifier, version and digest;
+- risk context and provenance references;
+- nonce / replay-protection identifier;
+- issued-at, expiry and permitted execution window;
+- budget, concurrency and rate constraints where applicable;
+- decision outcome, reason codes and approval evidence;
+- issuer/key identifier and cryptographic verification material;
+- execution result and evidence references, appended after execution.
+
+The Passport is a proposed contract, not a claim that a complete cross-repository implementation exists today. It must not become a bearer credential that can be replayed for a different action.
+
+### 16.5 Verification state vocabulary
+
+All verification and external evidence integrations must expose honest, machine-readable states:
+
+- **VERIFIED:** the defined checks succeeded against identified trust roots and evidence.
+- **FAILED:** a required check failed.
+- **PENDING:** verification is incomplete and may still complete.
+- **INDETERMINATE:** available evidence is insufficient to reach a conclusion.
+- **SIMULATED:** the result comes from a test, fixture, mock, or simulation.
+- **NOT_CHECKED:** no verification was attempted.
+
+No UI, report, API, investor material, or workflow may collapse PENDING, INDETERMINATE, SIMULATED, or NOT_CHECKED into VERIFIED. Verification claims must identify exactly what was checked and what remains outside scope.
+
+## 17. Open-core strategy and intellectual-property boundaries
+
+### 17.1 Proposed product boundary
+
+The intended strategy is **open interoperability, proprietary orchestration and control**, subject to a complete legal and technical audit.
+
+| Surface | Proposed posture | Guardrail |
+|---|---|---|
+| aston-attestation-sdk | Open, portable attestation/evidence interfaces; Apache-2.0 strategy | Verify actual release artifact, license, provenance and conformance before each public claim |
+| ASTON OS runtime | Proprietary product layer, subject to repository ownership and license audit | Do not relicense existing code or contributions without authority |
+| Trust Fabric control plane | Proprietary orchestration and governance layer, subject to legal audit | Clearly separate customer-owned data/keys from ASTON IP |
+| Immune Fabric orchestration | Integrated proprietary defense and resilience layer, subject to implementation | Do not present roadmap modules as existing features |
+| Schemas / protocol interfaces | Selectively publish stable interoperable contracts | Publish only after compatibility, security and governance review |
+
+The SDK may lower adoption friction, but “bait”, “moat”, or guaranteed network effects are not technical facts. Adoption, ecosystem effects, defensibility and monetization must be demonstrated commercially.
+
+### 17.2 Release and supply-chain claim discipline
+
+SLSA level, signatures, REUSE, dependency scanning and provenance must be reported per exact artifact, workflow run, source commit and verification procedure. A green workflow on a branch is not automatically proof that a release artifact has the same property. No blanket statement such as “the entire platform is SLSA L3” is permitted without evidence covering the relevant release and build boundary.
+
+## 18. Engineering maturity and investor disclosure baseline
+
+The following is the disclosure baseline supplied for this specification. It is deliberately conservative. Each item must be rechecked against the repositories and exact commits during Phase A before it is represented as an independently verified fact.
+
+| Area | Current disclosure wording | What is not established by that wording |
+|---|---|---|
+| CORE tests | 23/23 reported passing in Miniflare/SQLite, within a branch/test scope | Production reliability, complete attack coverage, or current main-branch status |
+| SafetyInterlock | Code and tests reported; full content-bound path in production runtime remains a milestone | Universal enforcement across all execution paths |
+| Signatures and evidence | Ed25519/SHA-256 components reported tested within branch scope | End-to-end trust chain across all repositories and production |
+| OpenTimestamps / Bitcoin | Workflow or stub exists | Independently confirmed Bitcoin anchoring |
+| Cloudflare staging / production | Configuration exists in code | Operational deployment, live bindings, production enforcement |
+| Three-/four-repository integration | Partial | Complete end-to-end integration and independent verification |
+| Customers and revenue | No verified traction disclosed | Paid adoption, retention, repeatable sales |
+| Patent | Provisional draft reported, not filed | Patent-pending status, granted rights, novelty or freedom to operate |
+
+### 18.1 Required public and investor wording
+
+A defensible current formulation is:
+
+> ASTON has engineering evidence in defined repository and branch scopes, alongside a clear product thesis for governing autonomous actions and producing verifiable evidence. It is not being represented as production-certified; no independent Bitcoin anchor or verified customer traction is claimed.
+
+Every external deck or diligence response must link each material statement to a dated evidence-register entry, commit SHA, artifact digest, test report, deployment record, or customer-approved reference. Where such evidence does not exist, the statement must be framed as a design objective or roadmap item.
+
+## 19. Blue-ocean opportunity map
+
+“Blue ocean” means a potentially under-served category, buyer problem, or integration gap. It does not mean there are no competitors. Existing policy engines, cloud identity systems, AI security vendors, endpoint platforms, and governance products must be included in competitive diligence.
+
+The opportunities below are hypotheses to validate, not claims of uncontested markets or implemented features.
+
+| # | Opportunity hypothesis | Potential buyer / use case | Evidence required to validate the wedge |
+|---:|---|---|---|
+| 1 | Action trust layer: authorization of actions, not only prompts | CISO, AI platform engineering; high-impact agent workflows | Demonstrate exact-action binding, pre-execution enforcement and bypass tests |
+| 2 | Independent evidence plane | Auditors, regulators, insurers, B2B counterparties | Verify evidence outside the enforcement runtime and document trust-root separation |
+| 3 | Decision Passport | IAM/platform teams governing agent actions | Prove scope, nonce, expiry, policy version, canonical action binding and replay resistance |
+| 4 | Fail-closed as a product guarantee | Regulated enterprises | Fault-injection evidence for timeout, invalid signature, missing policy and verifier outage |
+| 5 | Atomic resource control for agents | Finance, platform and operations teams | Race-condition tests for spend, concurrency, quotas and idempotency |
+| 6 | Portable multi-vendor attestation | Agent platforms, cloud providers, integrators | Independent implementations and cross-vendor conformance tests |
+| 7 | Explicit human-governance states | Compliance and operations teams | Demonstrate PENDING/REVIEW/DENY/ALLOW lifecycle, approver identity and re-evaluation |
+| 8 | Certified Extraction Environment (CEE) | Finance, legal, insurance claims, trade documentation | Signed extraction result, confidence threshold, lineage and reproducibility |
+| 9 | Bitemporal ontology and decision lineage | Compliance, legal, forensic audit | Reconstruct what was known at decision time and what changed later |
+| 10 | Verifiable Immune Fabric | Security operations and AI platform owners | Bounded detection-to-containment flow, customer authority, rollback and evidence |
+| 11 | Cross-system trust across cloud, edge, hybrid and OT | Industrial, infrastructure and hybrid enterprises | Demonstrate boundary contracts and safety cases in at least one real environment |
+| 12 | Honest multi-state verification | Auditors, procurement, security buyers | Ensure VERIFIED/FAILED/PENDING/INDETERMINATE/SIMULATED states cannot be misreported |
+| 13 | Insurance / algorithmic-risk evidence interface | Insurers, brokers, enterprise risk teams | Underwriting partner validation; evidence-to-coverage mapping; no claim ASTON is an insurer |
+| 14 | Proof-of-Intention between agents | Multi-agent platforms and agent-commerce networks | Authenticated intent, bounded delegation, counterparty policy and dispute evidence |
+| 15 | Privacy-preserving Decision Passports | Regulated and confidential workflows | First define commitments and threat model; prove privacy properties before claiming ZK |
+| 16 | Physical / edge attestation | Robotics and industrial operators | Device identity, measured state, telemetry integrity and physical safety validation |
+| 17 | Neutral MCP governance server | Enterprises using multiple MCP tool vendors | Tool authorization, identity propagation, policy enforcement and audit across vendors |
+| 18 | Executable constitution-as-code | AI governance and platform teams | Deterministic, versioned policy evaluation at every protected action boundary |
+| 19 | Replay-resistant regulator audit package | Banks, healthcare, critical infrastructure | Reproducible evidence bundle, verifier independence and regulator usability |
+| 20 | Narrow design-partner workflow | One enterprise team with a costly, bounded agent workflow | Paid or formally sponsored pilot, measurable baseline, acceptance criteria and renewal signal |
+
+### 19.1 Prioritization horizon
+
+**Near term — discovery and pilot wedge:** opportunities 1, 2, 3, 4, 6, 7, 12 and 20. These are closest to the core action-control/evidence thesis. Select one workflow rather than attempting to sell a horizontal “AI governance for everyone” platform.
+
+**12–18 month candidates:** opportunities 5, 8, 9, 10, 11, 17, 18 and 19. Advance only when core integration, customer demand and measurable acceptance criteria justify the investment.
+
+**Long-horizon research / Pioneer:** opportunities 13, 14, 15 and 16. These require ecosystem, cryptographic, insurance, physical-device or safety validation that should not be implied by the present architecture baseline.
+
+The order is a planning hypothesis and must be revisited using customer interviews, willingness-to-pay, implementation cost, regulatory constraints and competitive evidence.
+
+### 19.2 Competitive honesty
+
+Potential adjacent or competing categories include AI application security, prompt and model guardrails, policy-as-code, IAM/PAM, cloud security, endpoint detection and response, software supply-chain security, observability, GRC and digital forensics. ASTON's proposed differentiation is the integration of pre-execution action authorization, bounded enforcement, independently verifiable evidence and controlled containment under one explicit trust model.
+
+No claim of superiority over a named vendor is justified without a defined benchmark, comparable deployment scope, independent test results and customer evidence.
+
+## 20. Commercial entry strategy and pilot acceptance
+
+The initial commercial motion should be a **design-partner wedge**: one painful workflow, one buyer, one bounded integration, one measurable outcome. The platform vision remains broad; the first sale should not.
+
+Candidate workflows include:
+- an agent that initiates or approves payments;
+- an agent that changes cloud infrastructure;
+- an agent that issues legal documents or invoices;
+- an agent that accesses personal data under clearance/ABAC rules.
+
+For each pilot, define before implementation:
+1. customer owner and accountable security approver;
+2. exact agent, tools, resources and actions in scope;
+3. baseline workflow and existing controls;
+4. actions that must always be denied;
+5. permit scope, expiry, replay and budget constraints;
+6. human approval and emergency stop procedures;
+7. evidence package and independent verification method;
+8. latency, availability, false-positive and operational burden targets;
+9. incident, rollback and data-retention responsibilities;
+10. acceptance, failure and termination criteria.
+
+A pilot is not a production certification. A successful pilot requires recorded results against pre-agreed criteria and explicit customer acceptance.
+
+## 21. External positioning
+
+Recommended core message:
+
+> We do not ask customers to trust an agent because it says it behaved correctly. ASTON builds the control boundary that decides whether an agent may act, and the evidence layer that lets others independently verify what happened.
+
+Supporting explanation:
+- ASTON governs actions at the execution boundary rather than relying only on model-level assurances.
+- The permit is bounded to a specific action, context and time.
+- The resulting evidence is designed to be independently checked.
+- Immune Fabric adds risk-informed detection, proportionate containment and verifiable recovery.
+- The scope and limits of every verification claim are explicit.
+
+Avoid claims such as “unhackable”, “stops every cyberattack”, “zero-day proof”, “production-grade” without deployment evidence, “Bitcoin anchored” without independently verified receipts, “patented” before filing/grant status supports it, or “beats Palantir” without comparable independent benchmarks.
+
+## 22. Updated acceptance criteria for the unified strategy
+
+In addition to Section 15, the following must be satisfied before the integrated strategy is considered ready for external technical or investment diligence:
+
+- [ ] Product definition and three-layer architecture are consistent across repositories and materials.
+- [ ] Decision Passport is specified with canonical action binding and replay protection.
+- [ ] Enforcement and independent verification domains have documented trust-root separation.
+- [ ] All verification states are represented consistently and cannot overstate results.
+- [ ] Open-core boundary is reconciled with actual licenses, ownership and contribution history.
+- [ ] Every SLSA, signature, timestamp and test claim is tied to exact artifacts and verification evidence.
+- [ ] Blue-ocean hypotheses are mapped to competitors, buyers, willingness-to-pay and measurable acceptance criteria.
+- [ ] One initial design-partner workflow is selected and bounded.
+- [ ] No customer, revenue, production, patent or certification claim is made without supporting evidence.
